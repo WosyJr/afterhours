@@ -59,6 +59,8 @@ const Apply = require('./lib/apply');
 const Push = require('./lib/push');
 const Overlay = require('./lib/overlay');
 const OTD = require('./lib/onthisday');
+const Voice = require('./lib/voice');
+const Radio = require('./lib/radio');
 const Staff2 = require('./lib/staff');
 const SPname = id => require('./lib/streampages').memberName(id);
 const Staff = require('./lib/staff');
@@ -597,6 +599,16 @@ app.post('/settings/guests', need('settings'), (req, res) => {
   }
 });
 
+app.post('/settings/guests/default', need('settings'), (req, res) => {
+  const cfg = config();
+  const roleIds = (G.live.roles || []).filter(r => !r.managed).map(r => r.id);
+  const want = String(req.body.guestRole || '');
+  cfg.guestRole = roleIds.indexOf(want) > -1 ? want : '';
+  cfg.guestHours = Math.max(1, Math.min(720, Number(req.body.guestHours) || 24));
+  S.write('config', cfg);
+  res.redirect('/settings/discord?saved=guests2');
+});
+
 app.post('/settings/guests/revoke', need('settings'), (req, res) => {
   Guests.revoke(String(req.body.code || ''));
   res.redirect('/settings/discord?saved=guests');
@@ -969,6 +981,27 @@ app.post('/api/upload', need('view'),
     res.json({ ok: true, url: out.url, kind: out.kind });
   });
 
+app.post('/api/radio', need('settings'),
+  express.raw({ type: () => true, limit: '50mb' }),
+  (req, res) => {
+    const ct = req.headers['content-type'] || '';
+    if (!/^audio\//.test(ct)) {
+      return res.status(400).json({ ok: false, error: 'That is not an audio file.' });
+    }
+    const out = U.saveBlob(req.body, ct, 'radio');
+    if (out.error) return res.status(400).json({ ok: false, error: out.error });
+    const row = Radio.add(
+      { name: String(req.query.name || 'Untitled').slice(0, 80), url: out.url },
+      { id: req.ctx.me.id, name: req.ctx.me.name }
+    );
+    res.json({ ok: true, id: row.id, name: row.name });
+  });
+
+app.post('/settings/radio/remove', need('settings'), (req, res) => {
+  Radio.remove(String(req.body.id || ''));
+  res.redirect('/settings/site?radio=1');
+});
+
 app.get('/api/live', (req, res) => {
   const me = currentUser(req);
   if (!me) return res.status(401).json({ ok: false });
@@ -1041,6 +1074,7 @@ if (require.main === module) {
     Ladder.start();
     Guests.start();
     OTD.start();
+    Voice.start();
     G.on('promoted', m => {
       const c = config();
       const ch = c.memoriesChannel || c.announceChannel;

@@ -222,3 +222,41 @@
     }, 12000);
   }
 })();
+
+(function () {
+  var inp = document.getElementById('radiofile');
+  if (!inp) return;
+  var label = inp.closest('.rep');
+  var text = label && label.querySelector('[data-radiotext]');
+  inp.addEventListener('change', function () {
+    var files = [].slice.call(inp.files || []);
+    if (!files.length) return;
+    var done = 0;
+    var failed = [];
+    label.classList.add('busy');
+    (function next() {
+      if (!files.length) {
+        label.classList.remove('busy');
+        text.textContent = failed.length
+          ? failed.length + ' would not upload'
+          : 'Added ' + done + ', reloading';
+        if (!failed.length) setTimeout(function () { location.reload(); }, 500);
+        else setTimeout(function () { location.reload(); }, 2200);
+        return;
+      }
+      var f = files.shift();
+      text.textContent = 'Uploading ' + f.name;
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/radio?name=' + encodeURIComponent(f.name.replace(/\.[^.]+$/, '')));
+      xhr.setRequestHeader('Content-Type', f.type || 'audio/mpeg');
+      xhr.onload = function () {
+        var ok = false;
+        try { ok = JSON.parse(xhr.responseText).ok; } catch (e) {}
+        if (ok) done++; else failed.push(f.name);
+        next();
+      };
+      xhr.onerror = function () { failed.push(f.name); next(); };
+      xhr.send(f);
+    })();
+  });
+})();

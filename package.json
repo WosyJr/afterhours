@@ -12,9 +12,12 @@
     "node": ">=18"
   },
   "dependencies": {
+    "@discordjs/voice": "^0.18.0",
     "cookie-session": "^2.1.0",
     "express": "^4.21.2",
+    "libsodium-wrappers": "^0.7.15",
     "node-emoji": "^2.2.0",
+    "opusscript": "^0.1.1",
     "web-push": "^3.6.7",
     "ws": "^8.18.0"
   }
