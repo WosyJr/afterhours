@@ -274,6 +274,10 @@ Use **MP4 (H.264)** or **WebM**. Both play everywhere that matters. Keep it
 short and loop-friendly — ten to twenty seconds is plenty, and the file is
 served to everyone who opens the site, so a 60MB montage is a 60MB download.
 
+The upload shows a running percentage. A large file over a home connection
+genuinely takes a while: 60MB on a 10Mbps upstream is about a minute and a half.
+If it fails you are told why rather than being left watching.
+
 A dark montage looks best. The scrim over it is tuned so the card stays readable
 even over bright footage, but gameplay at night is what it is built for.
 
@@ -340,9 +344,16 @@ Two lists:
 Volume, the track you were on and how far through it you were all persist, so
 closing the window and opening it again picks up where you left off.
 
-It is a YouTube player underneath, through `youtube-nocookie.com`. A track that
-the uploader has blocked from off-site embedding will skip itself after a moment
-rather than sitting there silent.
+It is a YouTube player underneath, on `youtube.com` rather than
+`youtube-nocookie.com` — the no-cookie host does not serve playlist embeds
+reliably, and this is mostly playlists.
+
+When something will not play, the player says which of the reasons it is rather
+than sitting on a black box: private or deleted, embedding switched off by the
+owner, or a malformed link. Then it moves on to the next entry.
+
+A playlist that has to be set to **Private** will not embed anywhere. Unlisted
+and Public both work.
 
 On phones the mini bar moves above the bottom tab bar. Pop-up windows are
 awkward on mobile, so if the browser blocks it the player says so and tells you
@@ -368,6 +379,33 @@ what to allow.
 New roles added in Discord are picked up automatically and seeded sensibly:
 the top role gets everything, the next few get a moderator-ish set, the rest get
 a member set. Nothing that touches other people's content is granted silently.
+
+### Hidden roles
+
+Not every Discord role is a rank. A bot's integration role, colour roles, ping
+roles — none of them describe a person, and Discord will happily sit them above
+everything else. **Settings → Permissions → Hide this role from the site** takes
+a role out of circulation: it stops being anyone's rank, drops off Ranks, and
+grants nothing here however high it sits.
+
+Bot roles are hidden for you the first time the site sees them, because that one
+otherwise lands at the top and takes every permission with it.
+
+### The top role
+
+The highest role you have **not** hidden keeps all ten permissions and cannot
+have any switched off, so the place cannot be locked up by accident. Hide it and
+the next one down takes over. The owner keeps everything regardless of any of
+this.
+
+### Who can open Settings
+
+Settings is the owner's alone by default — it is not shown in the navigation to
+anyone else, and typing the address gets them a refusal. Being able to manage
+members is not the same as being able to rewire the site.
+
+**Settings → Site → Who can open Settings** will let anyone holding *Manage the
+site* in as well, if you want that. You keep access either way.
 
 ---
 

@@ -83,7 +83,8 @@
         events: {
           onReady: function (e) {
             try { e.target.setVolume(vol); e.target.playVideo(); } catch (x) {}
-            setTimeout(function () { if (!playing()) q('[data-start]').hidden = false; }, 1800);
+            if (c.list) setTimeout(function () { if (!playing()) C.kick(player, c); }, 900);
+            setTimeout(function () { if (!playing()) q('[data-start]').hidden = false; }, 2400);
           },
           onStateChange: function (e) {
             if (e.data === 1) q('[data-start]').hidden = true;

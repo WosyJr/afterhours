@@ -547,3 +547,10 @@ label.check span { min-width:0; }
 .pb.st { background:rgba(102,192,244,.14); color:#8FD3F4; }
 .chs.warn { color:var(--amber); }
 .lk { color:var(--aqua); text-decoration:underline; text-underline-offset:2px; }
+.rr.off { opacity:.55; }
+.rtag { font-size:9.5px; font-weight:800; letter-spacing:.09em; text-transform:uppercase;
+  padding:2px 6px; border-radius:6px; background:rgba(124,92,255,.18); color:var(--iris2); flex:none; }
+.rtag.off { background:var(--surf3); color:var(--faint); }
+.rsep { font-size:11px; font-weight:700; letter-spacing:.11em; text-transform:uppercase;
+  color:var(--faint); margin:14px 0 8px; padding-top:12px; border-top:1px solid var(--line); }
+.perm.dim { opacity:.45; }

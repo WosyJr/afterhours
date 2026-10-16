@@ -73,6 +73,8 @@
   }
 
   /* ---------- picture and video slots ---------- */
+  function mb(n) { return (n / 1048576).toFixed(n < 10485760 ? 1 : 0) + 'MB'; }
+
   document.addEventListener('change', function (e) {
     var input = e.target.closest('[data-ph]');
     if (!input) return;
@@ -82,7 +84,7 @@
     var isVid = /^video\//.test(f.type);
     var cap = isVid ? 64 : 12;
     if (f.size > cap * 1024 * 1024) {
-      alert('That file is over ' + cap + 'MB. Try a smaller one.');
+      alert('That file is ' + mb(f.size) + '. The limit is ' + cap + 'MB for ' + (isVid ? 'video' : 'a picture') + '.');
       input.value = '';
       return;
     }
@@ -90,15 +92,15 @@
     var label = input.closest('.rep');
     var was = label.textContent;
     label.classList.add('busy');
-    label.textContent = 'Uploading…';
+    label.textContent = 'Starting…';
 
     var holder = input.closest('.photo');
     var url = URL.createObjectURL(f);
+    holder.querySelectorAll('video.vid,img.real').forEach(function (n) { n.remove(); });
     if (isVid) {
       var v = document.createElement('video');
       v.className = 'vid';
       v.src = url; v.autoplay = true; v.muted = true; v.loop = true; v.playsInline = true;
-      holder.querySelectorAll('video.vid,img.real').forEach(function (n) { n.remove(); });
       holder.appendChild(v);
       holder.classList.add('hasvid');
       holder.classList.remove('hasimg');
@@ -106,27 +108,42 @@
       var img = document.createElement('img');
       img.className = 'real';
       img.src = url;
-      holder.querySelectorAll('video.vid,img.real').forEach(function (n) { n.remove(); });
       holder.appendChild(img);
       holder.classList.add('hasimg');
       holder.classList.remove('hasvid');
     }
 
-    fetch('/api/upload?slot=' + encodeURIComponent(input.dataset.ph), {
-      method: 'POST',
-      headers: { 'Content-Type': f.type || 'application/octet-stream' },
-      body: f
-    }).then(function (r) { return r.json().catch(function () { return {}; }); })
-      .then(function (res) {
-        label.classList.remove('busy');
-        label.textContent = was;
-        input.value = '';
-        if (!res.ok) alert(res.error || 'That would not save.');
-      }).catch(function () {
-        label.classList.remove('busy');
-        label.textContent = was;
-        alert('The upload did not go through.');
-      });
+    function done(msg) {
+      label.classList.remove('busy');
+      label.textContent = was;
+      input.value = '';
+      if (msg) alert(msg);
+    }
+
+    /* XHR rather than fetch, because fetch cannot report upload progress and a
+       60MB montage over a home connection otherwise looks identical to a hang. */
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/upload?slot=' + encodeURIComponent(input.dataset.ph));
+    xhr.setRequestHeader('Content-Type', f.type || 'application/octet-stream');
+    xhr.timeout = 15 * 60 * 1000;
+
+    xhr.upload.onprogress = function (ev) {
+      if (!ev.lengthComputable) { label.textContent = 'Uploading…'; return; }
+      var pct = Math.round((ev.loaded / ev.total) * 100);
+      label.textContent = pct < 100 ? pct + '% of ' + mb(f.size) : 'Saving…';
+    };
+    xhr.onload = function () {
+      var res = {};
+      try { res = JSON.parse(xhr.responseText); } catch (x) {}
+      if (xhr.status === 200 && res.ok) return done('');
+      if (xhr.status === 413) return done('That file is too big for the server to accept.');
+      if (xhr.status === 403) return done(res.error || 'Your rank cannot change that picture.');
+      done(res.error || ('The server refused it (' + xhr.status + ').'));
+    };
+    xhr.onerror = function () { done('The upload did not go through. Check your connection and try again.'); };
+    xhr.ontimeout = function () { done('The upload timed out. Try a shorter or smaller video.'); };
+    xhr.onabort = function () { done(''); };
+    xhr.send(f);
   });
 
   /* ---------- live refresh ---------- */

@@ -96,7 +96,12 @@ function currentUser(req) {
 
 function ctxFor(req) {
   const me = currentUser(req);
-  return { me: me, perms: P.forUser(me), cfg: config() };
+  const cfg = config();
+  const perms = P.forUser(me);
+  /* Settings is the owner's alone unless the owner says otherwise. Managing
+     members is not the same as rewiring the site. */
+  perms.settings = !!me && (me.id === cfg.ownerId || (!!cfg.settingsForAdmins && !!perms.members));
+  return { me: me, perms: perms, cfg: cfg };
 }
 
 function need(key) {
@@ -104,7 +109,11 @@ function need(key) {
     const ctx = ctxFor(req);
     if (!ctx.me) return res.redirect('/');
     if (!ctx.perms.view) return res.send(V.gate(ctx.cfg, 'Your rank has no access to this site.', U.siteImage('gate-bg')));
-    if (key && !ctx.perms[key]) return res.status(403).send('Your rank cannot do that.');
+    if (key && !ctx.perms[key]) {
+      return res.status(403).send(key === 'settings'
+        ? 'Settings belongs to the owner of this site.'
+        : 'Your rank cannot do that.');
+    }
     req.ctx = ctx;
     next();
   };
@@ -201,7 +210,7 @@ function tab(name, title, fn, gate) {
 tab('crew', 'Crew', Pages.crew);
 tab('clips', 'Clips', Pages.clips);
 tab('play', 'Play', Pages.play);
-tab('settings', 'Settings', Pages.settings, 'members');
+tab('settings', 'Settings', Pages.settings, 'settings');
 
 /* Where the old eleven tabs used to live. */
 const MOVED = {
@@ -229,7 +238,7 @@ app.get('/music.json', need('view'), (req, res) => {
   });
 });
 
-app.post('/settings/music', need('members'), (req, res) => {
+app.post('/settings/music', need('settings'), (req, res) => {
   try {
     const list = Music.setHouse(req.body.list, req.ctx.me);
     res.redirect('/settings/site?music=' + list.length);
@@ -279,25 +288,34 @@ app.post('/profiles/connections', need('view'), async (req, res) => {
 
 app.post('/profiles/channels', need('view'), (req, res) => res.redirect(307, '/profiles/connections'));
 
-app.post('/permissions/toggle', need('roles'), (req, res) => {
-  const roles = G.live.roles;
-  const top = roles[0];
+app.post('/permissions/toggle', need('settings'), (req, res) => {
   const m = P.matrix();
   const rid = req.body.role, key = req.body.key;
-  if (!m[rid] || P.KEYS.indexOf(key) === -1) return res.redirect('/settings/perms');
-  if (top && rid === top.id) return res.redirect('/settings/perms?role=' + encodeURIComponent(rid));
+  const back = '/settings/perms?role=' + encodeURIComponent(rid || '');
+  if (P.KEYS.indexOf(key) === -1) return res.redirect('/settings/perms');
+  if (rid === P.topId() || P.isIgnored(rid)) return res.redirect(back);
+  m[rid] = m[rid] || Object.assign({}, P.DEFAULTS.low);
   m[rid][key] = m[rid][key] ? 0 : 1;
   P.saveMatrix(m);
+  res.redirect(back);
+});
+
+/* Hiding a role can change which one is top, so the whole lot is recomputed
+   against the live role list rather than stored and left to drift. */
+app.post('/permissions/ignore', need('settings'), (req, res) => {
+  const rid = String(req.body.role || '');
+  if (rid) P.toggleIgnored(rid, G.live.roles);
   res.redirect('/settings/perms?role=' + encodeURIComponent(rid));
 });
 
-app.post('/settings', need('members'), (req, res) => {
+app.post('/settings', need('settings'), (req, res) => {
   const c = S.read('config', {});
   ['siteName', 'tagline', 'heroTitle', 'heroSub', 'invite', 'mediaChannel', 'memoriesChannel',
     'liveChannel', 'announceChannel', 'dealChannel', 'achievementChannel'].forEach(k => {
     if (req.body[k] !== undefined) c[k] = String(req.body[k]).slice(0, 200);
   });
   c.musicAutoplay = req.body.musicAutoplay === 'on';
+  if (req.body.scope !== undefined) c.settingsForAdmins = req.body.settingsForAdmins === 'on';
   c.musicVolume = Math.max(0, Math.min(100, Number(req.body.musicVolume) || 12));
   S.write('config', c);
   G.backfillAll();
@@ -305,7 +323,7 @@ app.post('/settings', need('members'), (req, res) => {
   res.redirect('/settings/site');
 });
 
-app.post('/memories/channel', need('members'), (req, res) => {
+app.post('/memories/channel', need('settings'), (req, res) => {
   const c = S.read('config', {});
   c.memoriesChannel = String(req.body.channel || '');
   S.write('config', c);
@@ -494,6 +512,20 @@ app.get('/api/live', (req, res) => {
 });
 
 app.use((req, res) => res.status(404).send('Not found'));
+
+/* Without this an oversized upload falls through to Express's own handler and
+   answers with HTML, which the page cannot read, so it looks like a hang. */
+app.use((err, req, res, next) => {
+  const big = err && (err.type === 'entity.too.large' || err.status === 413 || err.statusCode === 413);
+  if (!big) console.error('[afterhours]', (err && err.message) || err);
+  if (res.headersSent) return next(err);
+  res.status(big ? 413 : 500).json({
+    ok: false,
+    error: big
+      ? 'That file is larger than the server will take. Keep video under 64MB.'
+      : 'Something went wrong on the server.'
+  });
+});
 
 if (require.main === module) {
   app.listen(PORT, () => {

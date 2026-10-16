@@ -60,5 +60,27 @@
     return v;
   }
 
-  window.JukeCore = { K: K, store: store, parse: parse, api: api, varsFor: varsFor, HOST: 'https://www.youtube-nocookie.com' };
+  /* Some playlists do not take from playerVars alone and need loading once the
+     player is up. Harmless when the first attempt already worked. */
+  function kick(player, track) {
+    if (!track || !track.list || !player || !player.loadPlaylist) return;
+    try { player.loadPlaylist({ list: track.list, listType: 'playlist', index: 0, startSeconds: 0 }); }
+    catch (e) {}
+  }
+
+  var WHY = {
+    2: 'that link is malformed',
+    5: 'the player could not open it',
+    100: 'it is private or no longer there',
+    101: 'the owner does not allow it off YouTube',
+    150: 'the owner does not allow it off YouTube'
+  };
+  function why(code) { return WHY[code] || 'YouTube would not play it'; }
+
+  /* youtube-nocookie.com does not serve playlist embeds reliably, and the
+     house list is mostly playlists, so the ordinary host it is. */
+  window.JukeCore = {
+    K: K, store: store, parse: parse, api: api, varsFor: varsFor, kick: kick, why: why,
+    HOST: 'https://www.youtube.com'
+  };
 })();

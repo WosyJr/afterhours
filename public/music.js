@@ -122,6 +122,7 @@
         events: {
           onReady: function (e) {
             try { e.target.setVolume(vol); e.target.playVideo(); } catch (x) {}
+            if (tr.list) setTimeout(function () { if (!playing()) C.kick(player, tr); }, 900);
             setTimeout(function () {
               if (playing()) { blocked = false; paint(); return; }
               /* Every browser refuses sound until this page has been
@@ -136,12 +137,12 @@
             if (e.data === 0 && !tr.list) return start(now.idx + 1, 0, true);
             save(); tell();
           },
-          onError: function () {
+          onError: function (e) {
             /* A track that refuses to embed inside a playlist can often still
                play on its own, so try that before giving up on it. */
-            if (tr.list && tr.id) { var solo = { id: tr.id, list: '', title: tr.title }; house[idx] = solo; return start(idx, 0, true); }
-            note('“' + (tr.title || 'That one') + '” will not play outside YouTube. Skipping.');
-            setTimeout(function () { start(now.idx + 1, 0, true); }, 1200);
+            if (tr.list && tr.id) { house[idx] = { id: tr.id, list: '', title: tr.title }; return start(idx, 0, true); }
+            note((tr.title || 'That one') + ' — ' + C.why(e && e.data) + '.');
+            if (house.length > 1) setTimeout(function () { start(now.idx + 1, 0, true); }, 2000);
           }
         }
       });
