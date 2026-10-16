@@ -14,7 +14,7 @@
 
   var state = { alive: false, title: '', playing: false, at: 0, win: false };
   var house = [];
-  var player = null, now = store.get(K.now, null), armed = false, blocked = false, muted = false;
+  var player = null, now = store.get(K.now, null), armed = false, blocked = false, muted = false, stalled = null;
   var vol = store.get(K.vol, null);
   if (vol === null) vol = Math.max(0, Math.min(100, Number(CFG.vol) || 12));
 
@@ -113,13 +113,16 @@
     if (box) return box;
     box = document.createElement('div');
     box.id = 'jukeinline';
-    box.innerHTML = '<div id="jukeinlineplayer"></div>';
-    document.body.appendChild(box);
+    box.innerHTML = '<div id="jukeinlineplayer"></div>' +
+      '<button type="button" class="jukeshrink" data-shrink title="Show or hide the video">&#9707;</button>';
+    host.insertBefore(box, host.firstChild);
+    if (store.get(K.tiny, true)) box.classList.add('tiny');
     return box;
   }
 
   function start(idx, t, quiet) {
     if (!house.length || winAlive()) return;
+    if (quiet) arm();
     idx = ((idx % house.length) + house.length) % house.length;
     var tr = house[idx];
     now = { src: 'house', idx: idx, t: t || 0, playing: true };
@@ -153,11 +156,16 @@
                 blocked = true;
                 paint();
                 if (quiet) arm(); else note('Press play to start the music.');
+                stall(tr);
               }, 1200);
             }, 1400);
           },
           onStateChange: function (e) {
-            if (e.data === 1) { blocked = false; q('[data-note]').hidden = true; }
+            if (e.data === 1) {
+              blocked = false;
+              q('[data-note]').hidden = true;
+              if (stalled) { clearTimeout(stalled); stalled = null; }
+            }
             if (e.data === 0 && !tr.list) return start(nextIdx(), 0, true);
             save(); tell();
           },
@@ -173,6 +181,16 @@
     });
   }
 
+  function stall(tr) {
+    if (stalled) return;
+    stalled = setTimeout(function () {
+      stalled = null;
+      if (playing() || !player) return;
+      var what = tr && tr.list ? 'That playlist' : 'That track';
+      note(what + ' has not started. Settings \u2192 Jukebox \u2192 Check every link says what YouTube is doing with it.');
+    }, 9000);
+  }
+
   function note(txt) {
     var n = q('[data-note]');
     n.hidden = false;
@@ -185,21 +203,27 @@
     var fire = function () {
       document.removeEventListener('pointerdown', fire, true);
       document.removeEventListener('keydown', fire, true);
+      document.removeEventListener('touchstart', fire, true);
       armed = false;
       muted = false;
+      if (!player) { if (house.length) start(now ? now.idx : 0, now ? now.t : 0, true); return; }
       try {
-        if (player) {
-          if (player.unMute) player.unMute();
-          player.setVolume(vol);
-          player.playVideo();
-        }
+        if (player.unMute) player.unMute();
+        player.setVolume(vol);
+        player.playVideo();
       } catch (e) {}
+      setTimeout(function () {
+        if (!playing()) { try { player.playVideo(); } catch (e) {} }
+        blocked = !playing();
+        paint();
+      }, 450);
       var n = q('[data-note]');
-      if (n && /muted/.test(n.textContent)) n.hidden = true;
+      if (n && /muted|Press play/.test(n.textContent)) n.hidden = true;
       paint();
     };
     document.addEventListener('pointerdown', fire, true);
     document.addEventListener('keydown', fire, true);
+    document.addEventListener('touchstart', fire, true);
   }
 
   function toggle() {
@@ -230,6 +254,14 @@
     if (t.closest('[data-hintok]')) { store.set(K.seen, true); q('[data-hint]').hidden = true; return; }
     if (t.closest('[data-open]')) { q('[data-hint]').hidden = true; openWin(); return; }
     if (t.closest('[data-toggle]') || t.closest('[data-title]')) { q('[data-hint]').hidden = true; toggle(); return; }
+    if (t.closest('[data-shrink]')) {
+      var bx = document.getElementById('jukeinline');
+      if (bx) {
+        var on = bx.classList.toggle('tiny');
+        store.set(K.tiny, on);
+      }
+      return;
+    }
     if (t.closest('[data-shuffle]')) {
       shuffle = !shuffle;
       store.set(K.shuf, shuffle);

@@ -1,7 +1,7 @@
 (function () {
   var K = {
     now: 'ahJukeNow', mine: 'ahJukeMine', vol: 'ahJukeVol',
-    beat: 'ahJukeBeat', seen: 'ahJukeSeen', off: 'ahJukeOff', shuf: 'ahJukeShuf'
+    beat: 'ahJukeBeat', seen: 'ahJukeSeen', off: 'ahJukeOff', shuf: 'ahJukeShuf', tiny: 'ahJukeTiny'
   };
 
   var store = {
@@ -55,11 +55,9 @@
   }
 
   function varsFor(track, t) {
-    var v = {
-      autoplay: 1, start: Math.floor(t || 0), playsinline: 1, rel: 0,
-      modestbranding: 1, enablejsapi: 1, origin: location.origin
-    };
+    var v = { autoplay: 1, playsinline: 1, rel: 0, enablejsapi: 1, origin: location.origin };
     if (track.list) { v.listType = 'playlist'; v.list = track.list; }
+    if (t) v.start = Math.floor(t);
     return v;
   }
 

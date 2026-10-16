@@ -46,6 +46,10 @@ const Site = require('./lib/site');
 const Embeds = require('./lib/embeds');
 const RR = require('./lib/reactroles');
 const Greet = require('./lib/greet');
+const ML = require('./lib/modlog');
+const Cal = require('./lib/calendar');
+const Staff2 = require('./lib/staff');
+const SPname = id => require('./lib/streampages').memberName(id);
 const Staff = require('./lib/staff');
 const Storage = require('./lib/storage');
 const Widget = require('./lib/widget');
@@ -208,7 +212,15 @@ function tab(name, title, fn, gate) {
   app.get('/' + name, need(gate), (req, res) => res.redirect('/' + name + '/' + subs[0]));
   app.get('/' + name + '/:sub', need(gate), (req, res) => {
     const sub = subs.indexOf(req.params.sub) > -1 ? req.params.sub : subs[0];
-    render(req, res, name, title, fn(req.ctx, sub, req.query));
+    const body = fn(req.ctx, sub, req.query);
+    if (body === null) {
+      res.status(403);
+      return render(req, res, name, title,
+        '<section class="page wrap"><h1 class="ttl">Staff only</h1>' +
+        '<p class="lede">Your rank does not have <b>Staff tools</b>. The owner can turn that on under ' +
+        '<a class="lk" href="/settings/perms">Settings &rarr; Permissions</a>.</p></section>');
+    }
+    render(req, res, name, title, body);
   });
 }
 
@@ -265,6 +277,92 @@ app.post('/settings/music', need('settings'), (req, res) => {
   }
 });
 
+app.post('/games/scan', need('view'), async (req, res) => {
+  const prof = S.read('profiles', {})[req.ctx.me.id] || {};
+  if (!prof.steam) {
+    return res.redirect('/play/library?scanerr=' + encodeURIComponent('Link a Steam account on your profile first.'));
+  }
+  let r;
+  try {
+    r = await Steam.syncLibrary(req.ctx.me.id, String(prof.steam), {
+      minMinutes: req.body.played === 'on' ? 1 : 0,
+      limit: 300
+    });
+  } catch (e) {
+    return res.redirect('/play/library?scanerr=' + encodeURIComponent(e.message.slice(0, 140)));
+  }
+  if (!r.ok) return res.redirect('/play/library?scanerr=' + encodeURIComponent(r.why));
+  if (r.empty) return res.redirect('/play/library?scanerr=' + encodeURIComponent('Steam says that account owns nothing.'));
+  const msg = 'Read ' + r.total + ' game' + (r.total === 1 ? '' : 's') + ' off Steam. ' +
+    r.added + ' new to the list, and you are now down as owning ' + r.joined + '.';
+  res.redirect('/play/library?scan=' + encodeURIComponent(msg));
+});
+
+app.post('/calendar/add', need('session'), (req, res) => {
+  try {
+    const row = Cal.add({
+      day: req.body.day, time: req.body.time, title: req.body.title,
+      note: req.body.note, game: req.body.game, cap: req.body.cap,
+      host: req.ctx.me.id, hostName: req.ctx.me.name
+    });
+    const cfg = config();
+    const ch = cfg.announceChannel || cfg.liveChannel;
+    if (ch) D.post(ch, Embeds.hosting(row)).catch(() => {});
+  } catch (e) {
+    return res.redirect('/play/calendar?e=' + encodeURIComponent(e.message.slice(0, 120)));
+  }
+  res.redirect('/play/calendar');
+});
+
+app.post('/calendar/rsvp', need('view'), (req, res) => {
+  const r = Cal.rsvp(String(req.body.id || ''), req.ctx.me.id, req.body.on === '1');
+  if (r && r.full) return res.redirect('/play/calendar?e=' + encodeURIComponent('That one is full.'));
+  res.redirect('/play/calendar');
+});
+
+app.post('/calendar/remove', need('view'), (req, res) => {
+  const r = Cal.remove(String(req.body.id || ''), req.ctx.me.id, !!req.ctx.perms.staff);
+  if (r.denied) return res.redirect('/play/calendar?e=' + encodeURIComponent('That is not yours to remove.'));
+  res.redirect('/play/calendar');
+});
+
+app.post('/events/slot/remove', need('event'), (req, res) => {
+  const slots = S.read('slots', []);
+  const i = slots.findIndex(x => x.id === String(req.body.slot || ''));
+  if (i > -1) {
+    slots.splice(i, 1);
+    S.write('slots', slots);
+  }
+  res.redirect('/play/nights');
+});
+
+app.post('/events/clear', need('event'), (req, res) => {
+  S.write('event', null);
+  res.redirect('/play/nights');
+});
+
+app.post('/staff/unwarn', need('staff'), (req, res) => {
+  const who = String(req.body.who || '');
+  const which = req.body.which ? Number(req.body.which) : null;
+  const r = Staff2.removeWarn(who, which);
+  if (r.gone) {
+    ML.record('unwarn', { who: who, whoName: SPname(who), by: req.ctx.me.id, byName: req.ctx.me.name,
+      detail: which ? 'Removed warning ' + which + ' from the site' : 'Cleared all warnings from the site' });
+  }
+  res.redirect('/crew/staff?done=warn');
+});
+
+app.post('/staff/delnote', need('staff'), (req, res) => {
+  const who = String(req.body.who || '');
+  const which = req.body.which ? Number(req.body.which) : null;
+  const r = Staff2.removeNote(who, which);
+  if (r.gone) {
+    ML.record('unnote', { who: who, whoName: SPname(who), by: req.ctx.me.id, byName: req.ctx.me.name,
+      detail: which ? 'Removed note ' + which + ' from the site' : 'Cleared all notes from the site' });
+  }
+  res.redirect('/crew/staff?done=note');
+});
+
 app.post('/settings/pings', need('settings'), (req, res) => {
   const cfg = config();
   const ids = (G.live.roles || []).map(r => r.id);
@@ -272,6 +370,9 @@ app.post('/settings/pings', need('settings'), (req, res) => {
     const v = String(req.body[k] || '');
     cfg[k] = ids.indexOf(v) > -1 ? v : '';
   });
+  const chans = Object.values(G.live.channels).filter(c => c.type === 0).map(c => c.id);
+  const lc = String(req.body.logChannel || '');
+  cfg.logChannel = chans.indexOf(lc) > -1 ? lc : '';
   S.write('config', cfg);
   res.redirect('/settings/discord?saved=pings');
 });
@@ -666,6 +767,8 @@ if (require.main === module) {
     Cmd.register();
     Widget.start();
     Greet.start();
+    RR.start();
+    ML.start();
     G.on('reaction', (d, up) => RR.onReaction(d, up));
     U.sweepParts();
     setInterval(() => U.sweepParts(), 3600000).unref();
