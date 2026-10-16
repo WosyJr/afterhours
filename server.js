@@ -48,6 +48,9 @@ const RR = require('./lib/reactroles');
 const Greet = require('./lib/greet');
 const ML = require('./lib/modlog');
 const Cal = require('./lib/calendar');
+const VR = require('./lib/voicerooms');
+const Board = require('./lib/board');
+const FM = require('./lib/fivemin');
 const Staff2 = require('./lib/staff');
 const SPname = id => require('./lib/streampages').memberName(id);
 const Staff = require('./lib/staff');
@@ -455,6 +458,30 @@ app.post('/settings/reactroles/react', need('settings'), async (req, res) => {
   }
 });
 
+app.post('/settings/voice', need('settings'), async (req, res) => {
+  const cfg = config();
+  const voice = Object.values(G.live.channels).filter(c => c.type === 2).map(c => c.id);
+  const text = Object.values(G.live.channels).filter(c => c.type === 0).map(c => c.id);
+  const roleIds = (G.live.roles || []).filter(r => !r.managed).map(r => r.id);
+  const pick = (v, from) => (from.indexOf(String(v || '')) > -1 ? String(v) : '');
+
+  const wasNames = !!cfg.voiceNames;
+  cfg.voiceNames = req.body.voiceNames === 'on';
+  cfg.lobbyChannel = pick(req.body.lobbyChannel, voice);
+  cfg.tempLimit = Math.max(0, Math.min(99, Number(req.body.tempLimit) || 0));
+  cfg.aloneMinutes = Math.max(0, Math.min(180, Number(req.body.aloneMinutes) || 0));
+  cfg.aloneChannel = pick(req.body.aloneChannel, text);
+  cfg.alonePing = pick(req.body.alonePing, roleIds);
+  cfg.boardChannel = pick(req.body.boardChannel, text);
+  cfg.fiveMin = req.body.fiveMin === 'on';
+  cfg.fiveMinChannel = pick(req.body.fiveMinChannel, text);
+  S.write('config', cfg);
+
+  if (wasNames && !cfg.voiceNames) VR.restoreNames().catch(() => {});
+  if (cfg.boardChannel) Board.refresh(true).catch(() => {});
+  res.redirect('/settings/discord?saved=voice');
+});
+
 app.post('/settings/greet', need('settings'), (req, res) => {
   const cfg = config();
   const chans = Object.values(G.live.channels).filter(c => c.type === 0).map(c => c.id);
@@ -818,6 +845,9 @@ if (require.main === module) {
     Greet.start();
     RR.start();
     ML.start();
+    VR.start();
+    Board.start();
+    FM.start();
     G.on('reaction', (d, up) => RR.onReaction(d, up));
     U.sweepParts();
     setInterval(() => U.sweepParts(), 3600000).unref();
