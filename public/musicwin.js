@@ -91,9 +91,9 @@
             if (e.data === 0 && !c.list) start(now.src, now.idx + 1, 0);
             save(); tell(); paint();
           },
-          onError: function () {
-            q('[data-title]').textContent = 'That one will not play outside YouTube. Skipping…';
-            setTimeout(function () { start(now.src, now.idx + 1, 0); }, 1500);
+          onError: function (e) {
+            q('[data-title]').textContent = (c.title || 'That one') + ' — ' + C.why(e && e.data, c) + '.';
+            setTimeout(function () { start(now.src, now.idx + 1, 0); }, 2200);
           }
         }
       });

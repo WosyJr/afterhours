@@ -75,7 +75,13 @@
     101: 'the owner does not allow it off YouTube',
     150: 'the owner does not allow it off YouTube'
   };
-  function why(code) { return WHY[code] || 'YouTube would not play it'; }
+  function why(code, track) {
+    var base = WHY[code] || 'YouTube would not play it';
+    if (track && track.list && !track.id) {
+      base += ' — a playlist has to be set to Public, not Unlisted';
+    }
+    return base;
+  }
 
   /* youtube-nocookie.com does not serve playlist embeds reliably, and the
      house list is mostly playlists, so the ordinary host it is. */

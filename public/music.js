@@ -143,7 +143,7 @@
             /* A track that refuses to embed inside a playlist can often still
                play on its own, so try that before giving up on it. */
             if (tr.list && tr.id) { house[idx] = { id: tr.id, list: '', title: tr.title }; return start(idx, 0, true); }
-            note((tr.title || 'That one') + ' — ' + C.why(e && e.data) + '.');
+            note((tr.title || 'That one') + ' — ' + C.why(e && e.data, tr) + '.');
             if (house.length > 1) setTimeout(function () { start(now.idx + 1, 0, true); }, 2000);
           }
         }
