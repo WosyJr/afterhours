@@ -571,6 +571,8 @@ app.post('/settings/voice', need('settings'), async (req, res) => {
   const wasNames = !!cfg.voiceNames;
   cfg.voiceNames = req.body.voiceNames === 'on';
   cfg.lobbyChannel = pick(req.body.lobbyChannel, voice);
+  const cats = Object.values(G.live.channels).filter(c => c.type === 4).map(c => c.id);
+  cfg.tempCategory = pick(req.body.tempCategory, cats);
   cfg.tempLimit = Math.max(0, Math.min(99, Number(req.body.tempLimit) || 0));
   cfg.aloneMinutes = Math.max(0, Math.min(180, Number(req.body.aloneMinutes) || 0));
   cfg.aloneChannel = pick(req.body.aloneChannel, text);
