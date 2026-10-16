@@ -380,6 +380,13 @@ New roles added in Discord are picked up automatically and seeded sensibly:
 the top role gets everything, the next few get a moderator-ish set, the rest get
 a member set. Nothing that touches other people's content is granted silently.
 
+### What the numbers count
+
+**Online now** and **In the crew** both count people: current members of the
+server, with apps left out. Counting presence instead would include the bot and
+anyone who has since left, which is how you end up with more people online than
+exist. When somebody leaves, their presence and voice state go with them.
+
 ### Hidden roles
 
 Not every Discord role is a rank. A bot's integration role, colour roles, ping

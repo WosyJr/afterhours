@@ -49,10 +49,12 @@
     var on = anyAlive();
     q('[data-title]').textContent = on && state.title ? state.title : 'Jukebox';
     q('[data-next]').hidden = !on;
-    /* The pop-out stays on offer whether or not anything is playing; it only
-       goes away once that window is the thing playing. Scoped to the bar,
-       because the first-run hint carries a pop-out button of its own. */
-    q('.jukebar [data-open]').hidden = state.win;
+    /* Always on offer. It used to hide while the pop-out window was the thing
+       playing, but nothing ever cleared that when the window closed, so the
+       button vanished for good. Pressing it with the window already open just
+       brings that window forward. Scoped to the bar, because the first-run
+       hint carries a pop-out button of its own. */
+    q('.jukebar [data-open]').hidden = false;
     host.classList.toggle('playing', on && state.playing);
     host.classList.toggle('open', on);
     host.classList.toggle('blocked', blocked);
@@ -61,7 +63,7 @@
   function hear(m) {
     if (!m || m.type !== 'state') return;
     if (m.closed) {
-      if (m.win) { state.alive = false; paint(); resume(); }
+      if (m.win) { state.alive = false; state.win = false; paint(); resume(); }
       return;
     }
     /* The pop-out window always wins; the inline player stands down for it. */
@@ -182,6 +184,8 @@
     if (!w) { note('Your browser blocked the music window. Allow pop-ups for this site, then try again.'); return; }
     save();
     stopInline();
+    /* Reusing the window name means this either opens it or, if it is already
+       open behind something, brings that one forward. */
     var blank = true;
     try { blank = !w.location.href || w.location.href === 'about:blank'; } catch (e) { blank = false; }
     if (blank) w.location.href = '/music';
