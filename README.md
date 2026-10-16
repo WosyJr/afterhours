@@ -138,6 +138,7 @@ them straight in there, never into a file you commit.
 | `STEAM_POLL_MS` | Optional. Defaults to 21600000, six hours |
 | `STREAM_POLL_MS` | Optional. Defaults to 60000 |
 | `STATS_TICK_MS` | Optional. Defaults to 60000 |
+| `WIDGET_TTL_MS` | Optional. How often the server widget is re-read. Defaults to 600000 |
 | `SESSION_SECRET` | Any long random string |
 | `PORT` | Railway sets this itself |
 | `DATA_DIR` | Optional. Defaults to `./data` |
@@ -201,6 +202,30 @@ Twitch embeds only play on a domain you have whitelisted, which the site handles
 by passing your `SITE_URL` hostname as the `parent` parameter. If the player
 shows a blank box, that is almost always `SITE_URL` not matching the domain you
 are actually on.
+
+### The server widget
+
+Discord's **Server Settings → Widget** is a public, unauthenticated view of a
+guild. The bot already gives the site more than it provides, so none of the
+member or voice data is used — Home's *Right now* and *Voice* cards are the same
+information, better dressed.
+
+The one part worth having is the **invite**. Discord generates one with the
+widget and it never expires. Leave the invite field in Settings blank and the
+site uses that; type one in and yours wins. If the widget is switched off,
+nothing breaks — there is just no automatic invite.
+
+`WIDGET_TTL_MS` controls how often it is re-read. The default is ten minutes.
+
+### Channels not showing up
+
+The dropdowns list channels the bot can **see**. A channel it has no *View
+Channel* permission on does not exist as far as the site is concerned.
+
+Channels made, renamed or deleted while the bot is connected arrive over the
+gateway straight away. If one is still missing — made while the bot was down,
+say — **Settings → Site → Re-read from Discord** pulls channels and roles again
+from the API. The count under the dropdowns tells you how many it can see.
 
 ### Mirrored channels
 

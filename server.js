@@ -44,6 +44,7 @@ const Cmd = require('./lib/commands');
 const Music = require('./lib/music');
 const Site = require('./lib/site');
 const Storage = require('./lib/storage');
+const Widget = require('./lib/widget');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -236,6 +237,13 @@ app.get('/music.json', need('view'), (req, res) => {
     auto: !!c.musicAutoplay,
     vol: Math.max(0, Math.min(100, Number(c.musicVolume) || 12))
   });
+});
+
+/* Pulls channels and roles again, for when a channel was made while the bot
+   was offline or an event went missing. */
+app.post('/settings/refresh', need('settings'), async (req, res) => {
+  const got = await G.refresh().catch(() => null);
+  res.redirect('/settings/site' + (got ? '?got=' + got.channels + ',' + got.roles : '?got=err'));
 });
 
 app.post('/settings/music', need('settings'), (req, res) => {
@@ -594,6 +602,7 @@ if (require.main === module) {
     Ach.start();
     Steam.start();
     Cmd.register();
+    Widget.start();
     U.sweepParts();
     setInterval(() => U.sweepParts(), 3600000).unref();
   });

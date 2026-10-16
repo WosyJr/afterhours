@@ -108,13 +108,18 @@
       return;
     }
 
+    /* Everything the handler needs is grabbed before anything is touched, so
+       no later step can be working from a detached element. */
     var label = input.closest('.rep');
-    var was = label.textContent;
-    var slot = input.dataset.ph;
-    label.classList.add('busy');
-    label.textContent = 'Checking…';
-
+    var text = label && label.querySelector('[data-reptext]');
     var holder = input.closest('.photo');
+    var slot = input.dataset.ph;
+    if (!label || !text || !holder) { alert('Something is wrong with that slot. Refresh and try again.'); return; }
+
+    var was = text.textContent;
+    label.classList.add('busy');
+    text.textContent = 'Checking…';
+
     var url = URL.createObjectURL(f);
     holder.querySelectorAll('video.vid,img.real').forEach(function (n) { n.remove(); });
     if (isVid) {
@@ -135,7 +140,7 @@
 
     function done(msg) {
       label.classList.remove('busy');
-      label.textContent = was;
+      text.textContent = was;
       input.value = '';
       if (msg) alert(msg);
     }
@@ -162,7 +167,7 @@
             var q = '/api/upload/chunk?slot=' + encodeURIComponent(slot) +
               '&id=' + id + '&i=' + i + '&n=' + n +
               '&size=' + f.size + '&ct=' + encodeURIComponent(f.type || '');
-            label.textContent = n === 1 ? 'Saving…' : Math.round((i / n) * 100) + '% of ' + mb(f.size);
+            text.textContent = n === 1 ? 'Saving…' : Math.round((i / n) * 100) + '% of ' + mb(f.size);
 
             post(q, piece, 'application/octet-stream', 120000).then(function (r) {
               if (r.status === 200 && r.body.ok) {
