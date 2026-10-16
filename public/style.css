@@ -663,3 +663,14 @@ label.check span { min-width:0; }
   .scanrow { grid-template-columns:minmax(0,1fr); gap:7px; }
   .scanlast, .scanbtns { grid-column:1; }
 }
+
+.pick { display:grid; grid-template-columns:26px minmax(0,1fr) auto auto; gap:11px; align-items:center;
+  padding:10px 12px; border-radius:12px; background:var(--surf2); margin-bottom:7px; }
+.pick:last-child { margin-bottom:0; }
+.pickn { width:26px; height:26px; border-radius:9px; background:rgba(124,92,255,.2); color:#C9BDFF;
+  display:grid; place-items:center; font-size:12.5px; font-weight:700; }
+.pickt { font-weight:600; font-size:14.5px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+@media (max-width:620px) {
+  .pick { grid-template-columns:26px minmax(0,1fr); }
+  .pick .note, .pick .btn { grid-column:2; }
+}

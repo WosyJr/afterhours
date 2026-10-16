@@ -322,6 +322,20 @@ app.post('/games/scan', need('view'), async (req, res) => {
   if (r.empty) {
     return res.redirect('/play/library?scanerr=' + encodeURIComponent('Steam says that account owns nothing.') + '#scan');
   }
+
+  if (r.bought && r.bought.length) {
+    const cfg = config();
+    const ch = cfg.dealChannel || cfg.announceChannel;
+    if (ch) {
+      const lib = S.read('library', []);
+      const owners = {};
+      r.bought.forEach(g => {
+        const row = lib.find(x => String(x.appid) === String(g.appid));
+        owners[g.appid] = row ? (row.owners || []).filter(o => o !== who) : [];
+      });
+      D.post(ch, Embeds.bought(who, r.bought.slice(0, 6), owners)).catch(() => {});
+    }
+  }
   const msg = 'Read ' + r.total + ' game' + (r.total === 1 ? '' : 's') + ' off Steam. ' +
     r.added + ' new to the list, and ' + (forSelf ? 'you are' : name + ' is') + ' now down as owning ' + r.joined + '.';
   res.redirect('/play/library?scan=' + encodeURIComponent(msg) + '#scan');
