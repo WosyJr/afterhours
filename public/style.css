@@ -674,3 +674,14 @@ label.check span { min-width:0; }
   .pick { grid-template-columns:26px minmax(0,1fr); }
   .pick .note, .pick .btn { grid-column:2; }
 }
+
+.bdg.iris { background:rgba(124,92,255,.14); color:#B9A8FF; }
+.bdg.lime { background:rgba(74,222,128,.13); color:#7BE3A3; }
+.bdg.cyan { background:rgba(56,217,240,.13); color:#7FE3F2; }
+.bdg.rose { background:rgba(248,113,113,.13); color:#F89B9B; }
+.fcrow { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:11px; align-items:center;
+  padding:10px 12px; border-radius:12px; background:var(--surf2); margin-bottom:7px; }
+.fcl { font-weight:600; font-size:14.5px; }
+.fcn { font-size:13px; color:var(--dim); white-space:nowrap; }
+.fcbar { height:5px; border-radius:3px; background:var(--line); overflow:hidden; width:84px; }
+.fcbar i { display:block; height:100%; background:var(--iris); }

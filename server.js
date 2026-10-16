@@ -51,6 +51,9 @@ const Cal = require('./lib/calendar');
 const VR = require('./lib/voicerooms');
 const Board = require('./lib/board');
 const FM = require('./lib/fivemin');
+const Fc = require('./lib/forecast');
+const Ladder = require('./lib/ladder');
+const Badges = require('./lib/badges');
 const Staff2 = require('./lib/staff');
 const SPname = id => require('./lib/streampages').memberName(id);
 const Staff = require('./lib/staff');
@@ -458,6 +461,33 @@ app.post('/settings/reactroles/react', need('settings'), async (req, res) => {
   }
 });
 
+app.post('/settings/ranks', need('settings'), async (req, res) => {
+  const cfg = config();
+  const text = Object.values(G.live.channels).filter(c => c.type === 0).map(c => c.id);
+  cfg.autoRank = req.body.autoRank === 'on';
+  cfg.bedRoles = req.body.bedRoles === 'on';
+  cfg.rankChannel = text.indexOf(String(req.body.rankChannel || '')) > -1 ? String(req.body.rankChannel) : '';
+  cfg.timezone = String(req.body.timezone || '').slice(0, 40) || 'America/New_York';
+  S.write('config', cfg);
+
+  const badRungs = Ladder.unknownRungs(req.body.rungs);
+  Ladder.saveRungs(Ladder.parseRungs(req.body.rungs));
+  Ladder.saveBeds(Ladder.parseBeds(req.body.beds));
+
+  if (req.body.apply === 'now') {
+    try {
+      await Ladder.run(false);
+    } catch (e) {
+      return res.redirect('/settings/discord?rankerr=' + encodeURIComponent(e.message.slice(0, 140)));
+    }
+  }
+  if (badRungs.length) {
+    return res.redirect('/settings/discord?rankerr=' +
+      encodeURIComponent('Skipped, because no role matches: ' + badRungs.slice(0, 4).join(', ')));
+  }
+  res.redirect('/settings/discord?saved=ranks');
+});
+
 app.post('/settings/voice', need('settings'), async (req, res) => {
   const cfg = config();
   const voice = Object.values(G.live.channels).filter(c => c.type === 2).map(c => c.id);
@@ -848,6 +878,8 @@ if (require.main === module) {
     VR.start();
     Board.start();
     FM.start();
+    Fc.start();
+    Ladder.start();
     G.on('reaction', (d, up) => RR.onReaction(d, up));
     U.sweepParts();
     setInterval(() => U.sweepParts(), 3600000).unref();
