@@ -1,8 +1,6 @@
 const path = require('path');
 const fs = require('fs');
 
-/* A half-finished upload otherwise dies on a bare MODULE_NOT_FOUND stack that
-   says nothing useful. Name the missing files instead. */
 const NEEDED = ['store', 'site', 'storage', 'discord', 'gateway', 'perms', 'views', 'uploads',
   'pages', 'streams', 'streampages', 'stats', 'achievements', 'steam', 'commands', 'music'];
 const gone = NEEDED.filter(n => !fs.existsSync(path.join(__dirname, 'lib', n + '.js')));
@@ -94,7 +92,6 @@ function config() {
   return c;
 }
 
-/* ---------- who is this ---------- */
 
 function currentUser(req) {
   if (!req.session || !req.session.uid) return null;
@@ -120,8 +117,7 @@ function ctxFor(req) {
   const me = currentUser(req);
   const cfg = config();
   const perms = P.forUser(me);
-  /* Settings is the owner's alone unless the owner says otherwise. Managing
-     members is not the same as rewiring the site. */
+  
   perms.settings = !!me && (me.id === cfg.ownerId || (!!cfg.settingsForAdmins && !!perms.members));
   return { me: me, perms: perms, cfg: cfg };
 }
@@ -149,7 +145,7 @@ function render(req, res, active, title, body) {
   }));
 }
 
-/* ---------- auth ---------- */
+
 
 app.get('/login', (req, res) => {
   if (!D.configured()) {
@@ -192,7 +188,7 @@ app.get('/auth/callback', async (req, res) => {
     };
     S.write('users', users);
 
-    /* The very first person through the door owns the place. */
+    
     if (first) {
       const c = S.read('config', {});
       c.ownerId = who.id;
@@ -210,7 +206,7 @@ app.get('/auth/callback', async (req, res) => {
 
 app.get('/logout', (req, res) => { req.session = null; res.redirect('/'); });
 
-/* ---------- the five tabs ---------- */
+
 
 app.get('/', (req, res) => {
   const ctx = ctxFor(req);
@@ -242,7 +238,13 @@ tab('clips', 'Clips', Pages.clips);
 tab('play', 'Play', Pages.play);
 tab('settings', 'Settings', Pages.settings, 'settings');
 
-/* Where the old eleven tabs used to live. */
+app.get('/help/notifications', need('view'), (req, res) => {
+  render(req, res, 'crew', 'Notifications', Pages.notifyHelp(req.ctx));
+});
+
+app.get('/help', (req, res) => res.redirect('/help/notifications'));
+
+
 const MOVED = {
   '/profiles': '/crew/people', '/staff': '/crew/ranks', '/stats': '/crew/stats',
   '/media': '/clips/media', '/memories': '/clips/memories', '/live': '/clips/live',
@@ -251,7 +253,7 @@ const MOVED = {
 };
 Object.keys(MOVED).forEach(from => app.get(from, (req, res) => res.redirect(301, MOVED[from])));
 
-/* ---------- the jukebox ---------- */
+
 
 app.get('/music', need('view'), (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
@@ -274,8 +276,7 @@ app.get('/music.json', need('view'), (req, res) => {
   });
 });
 
-/* Pulls channels and roles again, for when a channel was made while the bot
-   was offline or an event went missing. */
+
 app.post('/settings/refresh', need('settings'), async (req, res) => {
   const got = await G.refresh().catch(() => null);
   res.redirect('/settings/site' + (got ? '?got=' + got.channels + ',' + got.roles : '?got=err'));
@@ -694,7 +695,7 @@ app.post('/settings/greet', need('settings'), (req, res) => {
   res.redirect('/settings/discord?saved=greet');
 });
 
-/* ---------- form actions ---------- */
+
 
 app.post('/profiles/me', need('view'), (req, res) => {
   const all = S.read('profiles', {});
@@ -706,7 +707,7 @@ app.post('/profiles/me', need('view'), (req, res) => {
   res.redirect('/crew/people#me');
 });
 
-/* Twitch, YouTube and Steam in one save, from your own profile card. */
+
 app.post('/profiles/connections', need('view'), async (req, res) => {
   const all = S.read('profiles', {});
   const mine = all[req.ctx.me.id] || {};
@@ -747,8 +748,7 @@ app.post('/permissions/toggle', need('settings'), (req, res) => {
   res.redirect(back);
 });
 
-/* Hiding a role can change which one is top, so the whole lot is recomputed
-   against the live role list rather than stored and left to drift. */
+
 app.post('/permissions/ignore', need('settings'), (req, res) => {
   const rid = String(req.body.role || '');
   if (rid) P.toggleIgnored(rid, G.live.roles);
@@ -815,7 +815,7 @@ app.post('/games/add', need('view'), (req, res) => {
   res.redirect('/play/library');
 });
 
-/* ---------- json api ---------- */
+
 
 app.post('/api/session', need('session'), (req, res) => {
   const list = S.read('sessions', []);
@@ -874,8 +874,7 @@ app.post('/api/own/:id', need('view'), (req, res) => {
   res.json({ ok: true });
 });
 
-/* The site's pin button reacts as the bot, so the pin exists in Discord too
-   and survives a restart of this app. */
+
 app.post('/api/pin', need('pin'), async (req, res) => {
   const ch = String(req.body.channel || '');
   const id = String(req.body.message || '');
@@ -898,14 +897,11 @@ app.post('/api/pin', need('pin'), async (req, res) => {
   res.json({ ok: true });
 });
 
-/* Pictures and video arrive as the raw request body, so nothing has to be
-   base64'd into JSON and video stays a file on disk rather than a data URL. */
-/* Lets the page find out whether a POST carrying a binary body reaches us at
-   all, separately from whether a big one does. */
+
+
 app.post('/api/upload/ping', need('view'),
   express.raw({ type: () => true, limit: '1mb' }),
   (req, res) => res.json({ ok: true, got: (req.body && req.body.length) || 0 }));
-
 function slotAllowed(ctx, slot) {
   if (/^banner-/.test(slot)) {
     const uid = slot.slice(7);
@@ -923,10 +919,7 @@ function land(ctx, slot, buf, ct) {
   return out;
 }
 
-/* Uploads arrive in small pieces rather than one big request. A 60MB body in
-   one go has to survive every proxy between the browser and here, and when it
-   does not there is nothing to see; in pieces, a stall has a chunk number and
-   the log says which one never arrived. */
+
 app.post('/api/upload/chunk', need('view'),
   express.raw({ type: () => true, limit: '8mb' }),
   (req, res) => {
@@ -971,8 +964,7 @@ app.post('/api/upload', need('view'),
     if (!slot) return res.status(400).json({ ok: false, error: 'No slot' });
     const ct = req.headers['content-type'] || '';
 
-    /* Your own banner is yours whatever your rank. Everything else on the
-       site is a site image and needs that permission. */
+    
     const no = slotAllowed(req.ctx, slot);
     if (no) return res.status(403).json({ ok: false, error: no });
 
@@ -1036,8 +1028,7 @@ app.get('/api/live', (req, res) => {
 
 app.use((req, res) => res.status(404).send('Not found'));
 
-/* Without this an oversized upload falls through to Express's own handler and
-   answers with HTML, which the page cannot read, so it looks like a hang. */
+
 app.use((err, req, res, next) => {
   const big = err && (err.type === 'entity.too.large' || err.status === 413 || err.statusCode === 413);
   if (!big) {

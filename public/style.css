@@ -767,3 +767,18 @@ label.btn.pick.busy { opacity:.65; pointer-events:none; }
 @media (max-width:760px) {
   .jukehint { display:none !important; }
 }
+
+.howcard { margin-top: 14px; }
+.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 13px; }
+.steps > li { display: flex; gap: 12px; align-items: flex-start; }
+.steps > li > div { min-width: 0; }
+.steps > li > div > b { display: block; line-height: 1.35; }
+.steps p { margin: 3px 0 0; color: var(--dim); font-size: 13px; line-height: 1.5; }
+.stepn {
+  flex: 0 0 25px; height: 25px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--line2); color: var(--txt); font-size: 12.5px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.plain { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.plain > li { color: var(--dim); font-size: 13.5px; line-height: 1.55; }
+.plain > li > b { color: var(--txt); }

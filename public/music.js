@@ -61,10 +61,6 @@
       sb.classList.toggle('on', !!shuffle);
       sb.setAttribute('aria-pressed', shuffle ? 'true' : 'false');
     }
-    /* Always on offer wherever a second window is a real thing. It used to
-       hide while the pop-out was playing, but nothing cleared that when the
-       window closed, so the button vanished for good. Scoped to the bar,
-       because the first-run hint carries a pop-out button of its own. */
     q('.jukebar [data-open]').hidden = !popoutWorks();
     host.classList.toggle('playing', on && state.playing);
     host.classList.toggle('open', on);
@@ -77,7 +73,7 @@
       if (m.win) { state.alive = false; state.win = false; paint(); resume(); }
       return;
     }
-    /* The pop-out window always wins; the inline player stands down for it. */
+    
     if (m.win && player) { stopInline(); }
     state = { alive: true, title: m.title || '', playing: !!m.playing, at: Date.now(), win: !!m.win };
     paint();
@@ -169,8 +165,7 @@
             save(); tell();
           },
           onError: function (e) {
-            /* A track that refuses to embed inside a playlist can often still
-               play on its own, so try that before giving up on it. */
+            
             if (tr.list && tr.id) { house[idx] = { id: tr.id, list: '', title: tr.title }; return start(idx, 0, true); }
             note((tr.title || 'That one') + ' — ' + C.why(e && e.data, tr) + '.');
             if (house.length > 1) setTimeout(function () { start(nextIdx(), 0, true); }, 2000);
@@ -252,8 +247,7 @@
     if (!w) { note('Your browser blocked the music window. Allow pop-ups for this site, then try again.'); return; }
     save();
     stopInline();
-    /* Reusing the window name means this either opens it or, if it is already
-       open behind something, brings that one forward. */
+    
     var blank = true;
     try { blank = !w.location.href || w.location.href === 'about:blank'; } catch (e) { blank = false; }
     if (blank) w.location.href = '/music';
@@ -303,7 +297,7 @@
   window.addEventListener('pagehide', function () { save(); });
   setInterval(function () { if (player) { save(); tell(); } else paint(); }, 1200);
 
-  /* Carry on from wherever the last page left off, rather than restarting. */
+  
   function resume() {
     if (winAlive() || player || !house.length) return;
     var auto = CFG.auto && !store.get(K.off, false);
@@ -333,10 +327,8 @@
     .then(function () {
       paint();
       setTimeout(resume, 120);
-      /* Shown once, whether or not the music is already going — it is the
-         only moment anyone finds out the pop-out exists. */
-      /* A pop-out window is a desktop idea. On a phone it either does nothing
-         or replaces the page, so the hint is not worth the screen it covers. */
+      
+      
       if (house.length && !store.get(K.seen, false) && popoutWorks()) {
         setTimeout(function () { if (!state.win) q('[data-hint]').hidden = false; }, 3000);
       }

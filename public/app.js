@@ -72,7 +72,6 @@
     setTimeout(function () { n.remove(); }, 4000);
   }
 
-  /* ---------- picture and video slots ---------- */
   function mb(n) { return (n / 1048576).toFixed(n < 10485760 ? 1 : 0) + 'MB'; }
 
   var CHUNK = 2 * 1024 * 1024;
@@ -108,8 +107,6 @@
       return;
     }
 
-    /* Everything the handler needs is grabbed before anything is touched, so
-       no later step can be working from a detached element. */
     var label = input.closest('.rep');
     var text = label && label.querySelector('[data-reptext]');
     var holder = input.closest('.photo');
@@ -145,9 +142,7 @@
       if (msg) alert(msg);
     }
 
-    /* A proxy that will not pass one 60MB body will usually pass thirty small
-       ones, and when it still will not, the failure has a chunk number on it
-       instead of being a spinner that never stops. */
+    
     function run() {
       post('/api/upload/ping', new Blob([new Uint8Array(8)]), 'application/octet-stream', 20000)
         .then(function (r) {
@@ -186,7 +181,7 @@
     run();
   });
 
-  /* ---------- live refresh ---------- */
+  
   var presEl = document.getElementById('presence');
   var voiceEl = document.getElementById('voice');
   if (presEl || voiceEl) {
@@ -226,36 +221,46 @@
 (function () {
   var inp = document.getElementById('radiofile');
   if (!inp) return;
-  var label = inp.closest('.rep');
-  var text = label && label.querySelector('[data-radiotext]');
+  var label = inp.closest('label') || inp.parentNode;
+  var text = label.querySelector('[data-radiotext]');
+  var say = function (m) { if (text) text.textContent = m; };
   inp.addEventListener('change', function () {
     var files = [].slice.call(inp.files || []);
     if (!files.length) return;
     var done = 0;
     var failed = [];
+    var total = files.length;
     label.classList.add('busy');
+    inp.disabled = true;
     (function next() {
       if (!files.length) {
         label.classList.remove('busy');
-        text.textContent = failed.length
-          ? failed.length + ' would not upload'
-          : 'Added ' + done + ', reloading';
-        if (!failed.length) setTimeout(function () { location.reload(); }, 500);
-        else setTimeout(function () { location.reload(); }, 2200);
+        inp.disabled = false;
+        if (!failed.length) {
+          say('Added ' + done + ', reloading');
+          setTimeout(function () { location.reload(); }, 500);
+          return;
+        }
+        say(failed[0].why + (failed.length > 1 ? ' (and ' + (failed.length - 1) + ' more)' : ''));
+        if (done) setTimeout(function () { location.reload(); }, 4000);
         return;
       }
       var f = files.shift();
-      text.textContent = 'Uploading ' + f.name;
+      say('Uploading ' + f.name + (total > 1 ? ' (' + (done + failed.length + 1) + ' of ' + total + ')' : ''));
       var xhr = new XMLHttpRequest();
       xhr.open('POST', '/api/radio?name=' + encodeURIComponent(f.name.replace(/\.[^.]+$/, '')));
       xhr.setRequestHeader('Content-Type', f.type || 'audio/mpeg');
       xhr.onload = function () {
-        var ok = false;
-        try { ok = JSON.parse(xhr.responseText).ok; } catch (e) {}
-        if (ok) done++; else failed.push(f.name);
+        var body = null;
+        try { body = JSON.parse(xhr.responseText); } catch (e) {}
+        if (body && body.ok) done++;
+        else failed.push({ name: f.name, why: (body && body.error) || 'Upload failed (' + xhr.status + ')' });
         next();
       };
-      xhr.onerror = function () { failed.push(f.name); next(); };
+      xhr.onerror = function () {
+        failed.push({ name: f.name, why: 'The upload did not reach the server' });
+        next();
+      };
       xhr.send(f);
     })();
   });

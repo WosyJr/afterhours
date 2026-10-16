@@ -4,6 +4,7 @@
   host.dataset.ready = '1';
 
   var btn = host.querySelector('[data-push]');
+  if (!btn) return;
   var note = host.querySelector('[data-pushnote]');
   var pub = host.dataset.key || '';
 
