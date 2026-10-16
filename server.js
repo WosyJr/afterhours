@@ -1,4 +1,30 @@
 const path = require('path');
+const fs = require('fs');
+
+/* A half-finished upload otherwise dies on a bare MODULE_NOT_FOUND stack that
+   says nothing useful. Name the missing files instead. */
+const NEEDED = ['store', 'site', 'storage', 'discord', 'gateway', 'perms', 'views', 'uploads',
+  'pages', 'streams', 'streampages', 'stats', 'achievements', 'steam', 'commands', 'music'];
+const gone = NEEDED.filter(n => !fs.existsSync(path.join(__dirname, 'lib', n + '.js')));
+if (gone.length) {
+  console.error('');
+  console.error('[afterhours] This deploy is missing ' + gone.length + ' file' + (gone.length === 1 ? '' : 's') + ':');
+  gone.forEach(n => console.error('[afterhours]     lib/' + n + '.js'));
+  console.error('[afterhours]');
+  console.error('[afterhours] Push the contents of afterhours-site.zip, which is the whole site.');
+  console.error('[afterhours] The changed-files zip only carries what moved since the one before it,');
+  console.error('[afterhours] so skipping one leaves holes like this.');
+  console.error('');
+  process.exit(1);
+}
+
+const ASSETS = ['style.css', 'app.js', 'jukecore.js', 'music.js', 'musicwin.js', 'icon.svg'];
+const noAsset = ASSETS.filter(n => !fs.existsSync(path.join(__dirname, 'public', n)));
+if (noAsset.length) {
+  console.error('[afterhours] Missing from public/: ' + noAsset.join(', '));
+  console.error('[afterhours] The site will run but parts of it will not work. Push the whole site.');
+}
+
 const express = require('express');
 const cookieSession = require('cookie-session');
 

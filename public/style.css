@@ -544,3 +544,6 @@ label.check { display:flex; gap:10px; align-items:flex-start; font-size:14px; co
 label.check input { margin-top:3px; accent-color:var(--iris); flex:none; }
 label.check span { min-width:0; }
 .jukehint .row { gap:7px; }
+.pb.st { background:rgba(102,192,244,.14); color:#8FD3F4; }
+.chs.warn { color:var(--amber); }
+.lk { color:var(--aqua); text-decoration:underline; text-underline-offset:2px; }

@@ -21,14 +21,15 @@
   host.innerHTML =
     '<div class="jukehint" data-hint hidden role="status">' +
       '<b>Music for the room</b>' +
-      '<span>The house list plays here. Pop it out into its own window and it keeps going without a gap when you move between tabs.</span>' +
-      '<button type="button" class="btn sm" data-hintok>Got it</button></div>' +
+      '<span>The house list plays right here. Pop it out into its own window and it keeps going without a gap when you move between tabs.</span>' +
+      '<div class="row"><button type="button" class="btn sm" data-open>Pop it out</button>' +
+      '<button type="button" class="btn sm ghost" data-hintok>Keep it here</button></div></div>' +
     '<div class="jukemini"><div class="jukebar">' +
       '<button type="button" class="jukebtn" data-toggle aria-label="Play or pause">' +
         '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 3 9 5.2v9.4a3.6 3.6 0 1 0 2 3.2V9.1l7-1.4v5.2a3.6 3.6 0 1 0 2 3.2Z"/></svg></button>' +
       '<button type="button" class="juketitle" data-title>Jukebox</button>' +
       '<button type="button" class="jukebtn" data-next aria-label="Next" hidden>&#9197;</button>' +
-      '<button type="button" class="jukebtn" data-open aria-label="Pop out into its own window" title="Pop out" hidden>' +
+      '<button type="button" class="jukebtn" data-open aria-label="Open the Jukebox in its own window" title="Open in its own window">' +
         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
         '<path d="M14 4h6v6M20 4l-8 8M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></button>' +
     '</div><p class="note jukenote" data-note hidden></p></div>';
@@ -48,7 +49,10 @@
     var on = anyAlive();
     q('[data-title]').textContent = on && state.title ? state.title : 'Jukebox';
     q('[data-next]').hidden = !on;
-    q('[data-open]').hidden = !on || state.win;
+    /* The pop-out stays on offer whether or not anything is playing; it only
+       goes away once that window is the thing playing. Scoped to the bar,
+       because the first-run hint carries a pop-out button of its own. */
+    q('.jukebar [data-open]').hidden = state.win;
     host.classList.toggle('playing', on && state.playing);
     host.classList.toggle('open', on);
     host.classList.toggle('blocked', blocked);
@@ -234,8 +238,10 @@
     .then(function () {
       paint();
       setTimeout(resume, 120);
+      /* Shown once, whether or not the music is already going — it is the
+         only moment anyone finds out the pop-out exists. */
       if (house.length && !store.get(K.seen, false)) {
-        setTimeout(function () { if (!anyAlive()) q('[data-hint]').hidden = false; }, 3000);
+        setTimeout(function () { if (!state.win) q('[data-hint]').hidden = false; }, 3000);
       }
     });
 })();
