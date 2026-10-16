@@ -56,6 +56,9 @@ const Ladder = require('./lib/ladder');
 const Badges = require('./lib/badges');
 const Guests = require('./lib/guests');
 const Apply = require('./lib/apply');
+const Push = require('./lib/push');
+const Overlay = require('./lib/overlay');
+const OTD = require('./lib/onthisday');
 const Staff2 = require('./lib/staff');
 const SPname = id => require('./lib/streampages').memberName(id);
 const Staff = require('./lib/staff');
@@ -463,6 +466,84 @@ app.post('/settings/reactroles/react', need('settings'), async (req, res) => {
   }
 });
 
+app.get('/overlay', (req, res) => {
+  if (String(req.query.k || '') !== Overlay.token()) return res.status(403).type('text/plain').send('Wrong key.');
+  res.setHeader('Cache-Control', 'no-store');
+  res.type('html').send(Overlay.page({
+    key: req.query.k, theme: req.query.theme, scale: req.query.scale,
+    games: req.query.games !== '0', max: req.query.max
+  }));
+});
+
+app.get('/overlay.json', (req, res) => {
+  if (String(req.query.k || '') !== Overlay.token()) return res.status(403).json({ error: 'Wrong key.' });
+  res.setHeader('Cache-Control', 'no-store');
+  res.json(Overlay.data());
+});
+
+app.post('/settings/overlay/rotate', need('settings'), (req, res) => {
+  Overlay.rotate();
+  res.redirect('/settings/site?overlay=1');
+});
+
+app.get('/manifest.webmanifest', (req, res) => {
+  const cfg = config();
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.type('application/manifest+json').send(JSON.stringify({
+    name: cfg.siteName || 'Afterhours',
+    short_name: cfg.siteName || 'Afterhours',
+    start_url: '/',
+    scope: '/',
+    display: 'standalone',
+    background_color: '#09090F',
+    theme_color: '#09090F',
+    icons: [
+      { src: '/icon-180.png', sizes: '180x180', type: 'image/png', purpose: 'any' },
+      { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' }
+    ]
+  }));
+});
+
+app.post('/api/push/on', need('view'), (req, res) => {
+  const ok = Push.add(req.ctx.me.id, req.body.sub, req.body.agent);
+  res.json({ ok: ok });
+});
+
+app.post('/api/push/off', need('view'), (req, res) => {
+  Push.drop(req.ctx.me.id, String(req.body.endpoint || ''));
+  res.json({ ok: true });
+});
+
+app.post('/api/push/test', need('view'), async (req, res) => {
+  const r = await Push.sendTo(req.ctx.me.id,
+    Push.note('Afterhours', 'That is what one looks like.', '/', 'test'));
+  res.json(r);
+});
+
+app.post('/profiles/push', need('view'), (req, res) => {
+  Push.setPrefs(req.ctx.me.id, {
+    live: req.body.live === 'on',
+    night: req.body.night === 'on',
+    deal: req.body.deal === 'on',
+    voice: req.body.voice === 'on'
+  });
+  res.redirect('/crew/people?pushed=1#me');
+});
+
+app.post('/settings/otd', need('settings'), async (req, res) => {
+  const cfg = config();
+  const text = Object.values(G.live.channels).filter(c => c.type === 0).map(c => c.id);
+  cfg.otdChannel = text.indexOf(String(req.body.otdChannel || '')) > -1 ? String(req.body.otdChannel) : '';
+  cfg.otdHour = Math.max(0, Math.min(23, Number(req.body.otdHour) || 10));
+  S.write('config', cfg);
+  if (req.body.now === '1' && cfg.otdChannel) {
+    const got = await OTD.run(true).catch(() => null);
+    if (!got) return res.redirect('/settings/discord?rankerr=' +
+      encodeURIComponent('Nothing from a year ago to post yet.'));
+  }
+  res.redirect('/settings/discord?saved=otd');
+});
+
 app.get('/apply', (req, res) => {
   const ctx = ctxFor(req);
   const cfg = ctx.cfg;
@@ -704,6 +785,9 @@ app.post('/events/lock', need('event'), (req, res) => {
     if (ch) {
       D.post(ch, Embeds.night(S.read('event', {}))).catch(() => {});
     }
+    Push.broadcast('night', Push.note(
+      'Game night locked in', s.label, '/play/nights', 'night'
+    )).catch(() => {});
     Ach.sweep().catch(() => {});
   }
   res.redirect('/play/nights');
@@ -956,6 +1040,7 @@ if (require.main === module) {
     Fc.start();
     Ladder.start();
     Guests.start();
+    OTD.start();
     G.on('promoted', m => {
       const c = config();
       const ch = c.memoriesChannel || c.announceChannel;

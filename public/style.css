@@ -748,3 +748,14 @@ body.hasjuke { padding-bottom:124px; }
 
 .applyf { display:block; text-align:left; margin-top:4px; }
 .applyf .fld { margin-top:12px; }
+
+.pushbox { margin-top:12px; padding-top:11px; border-top:1px solid var(--line); }
+.pushhead { display:flex; align-items:baseline; gap:9px; margin-bottom:9px; }
+.pushhead b { font-size:13px; }
+.pushhead .note { margin-left:auto; }
+.pushbox.on [data-push] { background:rgba(74,222,128,.14); border-color:rgba(74,222,128,.35); color:var(--lime); }
+.pushprefs { display:grid; gap:6px; margin-top:11px; }
+.pushprefs .check { font-size:13px; }
+.ovl { display:grid; gap:9px; }
+.ovl code { display:block; background:var(--surf2); border:1px solid var(--line); border-radius:9px;
+  padding:9px 11px; font-size:12px; overflow-wrap:anywhere; }
