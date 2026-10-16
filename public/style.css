@@ -763,3 +763,7 @@ body.hasjuke { padding-bottom:124px; }
 label.btn.pick { position:static; display:inline-flex; cursor:pointer; }
 label.btn.pick input { position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
 label.btn.pick.busy { opacity:.65; pointer-events:none; }
+
+@media (max-width:760px) {
+  .jukehint { display:none !important; }
+}

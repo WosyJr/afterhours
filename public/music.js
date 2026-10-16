@@ -61,12 +61,11 @@
       sb.classList.toggle('on', !!shuffle);
       sb.setAttribute('aria-pressed', shuffle ? 'true' : 'false');
     }
-    /* Always on offer. It used to hide while the pop-out window was the thing
-       playing, but nothing ever cleared that when the window closed, so the
-       button vanished for good. Pressing it with the window already open just
-       brings that window forward. Scoped to the bar, because the first-run
-       hint carries a pop-out button of its own. */
-    q('.jukebar [data-open]').hidden = false;
+    /* Always on offer wherever a second window is a real thing. It used to
+       hide while the pop-out was playing, but nothing cleared that when the
+       window closed, so the button vanished for good. Scoped to the bar,
+       because the first-run hint carries a pop-out button of its own. */
+    q('.jukebar [data-open]').hidden = !popoutWorks();
     host.classList.toggle('playing', on && state.playing);
     host.classList.toggle('open', on);
     host.classList.toggle('blocked', blocked);
@@ -182,6 +181,16 @@
   }
 
   function engaged() { return store.get(K.eng, false); }
+
+  function popoutWorks() {
+    try {
+      if (window.matchMedia && window.matchMedia('(max-width: 760px)').matches) return false;
+      if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) return false;
+      if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return false;
+      if (window.navigator && window.navigator.standalone) return false;
+    } catch (e) {}
+    return true;
+  }
 
   function stall(tr) {
     if (stalled) return;
@@ -326,7 +335,9 @@
       setTimeout(resume, 120);
       /* Shown once, whether or not the music is already going — it is the
          only moment anyone finds out the pop-out exists. */
-      if (house.length && !store.get(K.seen, false)) {
+      /* A pop-out window is a desktop idea. On a phone it either does nothing
+         or replaces the page, so the hint is not worth the screen it covers. */
+      if (house.length && !store.get(K.seen, false) && popoutWorks()) {
         setTimeout(function () { if (!state.win) q('[data-hint]').hidden = false; }, 3000);
       }
     });
