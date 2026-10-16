@@ -244,6 +244,7 @@ app.get('/music.json', need('view'), (req, res) => {
   res.json({
     list: Music.house().list,
     auto: !!c.musicAutoplay,
+    shuffle: c.musicShuffle !== false,
     vol: Math.max(0, Math.min(100, Number(c.musicVolume) || 12))
   });
 });
@@ -289,6 +290,19 @@ app.post('/settings/reactroles', need('settings'), async (req, res) => {
       encodeURIComponent('Skipped, because no role matches: ' + bad.slice(0, 4).join(', ')));
   }
   res.redirect('/settings/discord?saved=roles');
+});
+
+app.post('/settings/reactroles/react', need('settings'), async (req, res) => {
+  try {
+    const bad = await RR.syncReactions();
+    if (bad.length) return res.redirect('/settings/discord');
+    const st = RR.read();
+    st.error = '';
+    RR.write(st);
+    res.redirect('/settings/discord?saved=reacted');
+  } catch (e) {
+    res.redirect('/settings/discord?rrerr=' + encodeURIComponent(e.message.slice(0, 140)));
+  }
 });
 
 app.post('/settings/greet', need('settings'), (req, res) => {
@@ -373,6 +387,7 @@ app.post('/settings', need('settings'), (req, res) => {
     if (req.body[k] !== undefined) c[k] = String(req.body[k]).slice(0, 200);
   });
   c.musicAutoplay = req.body.musicAutoplay === 'on';
+  c.musicShuffle = req.body.musicShuffle === 'on';
   if (req.body.scope !== undefined) c.settingsForAdmins = req.body.settingsForAdmins === 'on';
   c.musicVolume = Math.max(0, Math.min(100, Number(req.body.musicVolume) || 12));
   S.write('config', c);

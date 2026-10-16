@@ -11,6 +11,15 @@
   var house = [];
   var mine = store.get(K.mine, []);
   var now = store.get(K.now, null);
+  var shuffle = store.get(K.shuf, null);
+  if (shuffle === null) shuffle = (window.JUKE && window.JUKE.shuffle) !== false;
+
+  function nextIdx() {
+    var list = listOf(now ? now.src : 'house');
+    if (!list.length) return 0;
+    var at = now ? now.idx : 0;
+    return shuffle ? C.pick(list.length, at) : at + 1;
+  }
   var vol = store.get(K.vol, null);
   if (vol === null) vol = 12;
   var tab = now && now.src === 'mine' ? 'mine' : 'house';
@@ -40,6 +49,11 @@
   }
 
   function paint() {
+    var sb = q('[data-shuffle]');
+    if (sb) {
+      sb.classList.toggle('on', !!shuffle);
+      sb.setAttribute('aria-pressed', shuffle ? 'true' : 'false');
+    }
     document.querySelectorAll('[data-tab]').forEach(function (b) {
       b.classList.toggle('on', b.getAttribute('data-tab') === tab);
     });
@@ -84,16 +98,28 @@
           onReady: function (e) {
             try { e.target.setVolume(vol); e.target.playVideo(); } catch (x) {}
             if (c.list) setTimeout(function () { if (!playing()) C.kick(player, c); }, 900);
-            setTimeout(function () { if (!playing()) q('[data-start]').hidden = false; }, 2400);
+            setTimeout(function () {
+              if (playing()) return;
+              try { e.target.mute(); e.target.playVideo(); } catch (x) {}
+              setTimeout(function () {
+                if (playing()) {
+                  var b = q('[data-start]');
+                  b.hidden = false;
+                  b.textContent = 'Turn the sound on';
+                  return;
+                }
+                q('[data-start]').hidden = false;
+              }, 1200);
+            }, 2400);
           },
           onStateChange: function (e) {
             if (e.data === 1) q('[data-start]').hidden = true;
-            if (e.data === 0 && !c.list) start(now.src, now.idx + 1, 0);
+            if (e.data === 0 && !c.list) start(now.src, nextIdx(), 0);
             save(); tell(); paint();
           },
           onError: function (e) {
             q('[data-title]').textContent = (c.title || 'That one') + ' — ' + C.why(e && e.data, c) + '.';
-            setTimeout(function () { start(now.src, now.idx + 1, 0); }, 2200);
+            setTimeout(function () { start(now.src, nextIdx(), 0); }, 2200);
           }
         }
       });
@@ -126,10 +152,18 @@
     var so = t.closest('[data-i]');
     if (so) { start(tab, Number(so.getAttribute('data-i')), 0); return; }
     if (t.closest('[data-toggle]')) return toggle();
-    if (t.closest('[data-next]')) { if (now) start(now.src, now.idx + 1, 0); return; }
+    if (t.closest('[data-shuffle]')) {
+      shuffle = !shuffle;
+      store.set(K.shuf, shuffle);
+      paint();
+      return;
+    }
+    if (t.closest('[data-next]')) { if (now) start(now.src, nextIdx(), 0); return; }
     if (t.closest('[data-prev]')) { if (now) start(now.src, now.idx - 1, 0); return; }
     if (t.closest('[data-start]')) {
       q('[data-start]').hidden = true;
+      q('[data-start]').textContent = 'Start the music';
+      try { if (player && player.unMute) { player.unMute(); player.setVolume(vol); } } catch (e) {}
       try { player.playVideo(); } catch (x) { if (now) start(now.src, now.idx, now.t); }
     }
   });

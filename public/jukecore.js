@@ -1,7 +1,7 @@
 (function () {
   var K = {
     now: 'ahJukeNow', mine: 'ahJukeMine', vol: 'ahJukeVol',
-    beat: 'ahJukeBeat', seen: 'ahJukeSeen', off: 'ahJukeOff'
+    beat: 'ahJukeBeat', seen: 'ahJukeSeen', off: 'ahJukeOff', shuf: 'ahJukeShuf'
   };
 
   var store = {
@@ -55,9 +55,32 @@
   }
 
   function varsFor(track, t) {
-    var v = { autoplay: 1, start: Math.floor(t || 0), playsinline: 1, rel: 0, modestbranding: 1 };
+    var v = {
+      autoplay: 1, start: Math.floor(t || 0), playsinline: 1, rel: 0,
+      modestbranding: 1, enablejsapi: 1, origin: location.origin
+    };
     if (track.list) { v.listType = 'playlist'; v.list = track.list; }
     return v;
+  }
+
+  function shuffled(n, avoid) {
+    var order = [];
+    for (var i = 0; i < n; i++) order.push(i);
+    for (var j = order.length - 1; j > 0; j--) {
+      var k = Math.floor(Math.random() * (j + 1));
+      var tmp = order[j]; order[j] = order[k]; order[k] = tmp;
+    }
+    if (n > 1 && avoid != null && order[0] === avoid) {
+      var sw = order[0]; order[0] = order[1]; order[1] = sw;
+    }
+    return order;
+  }
+
+  function pick(n, avoid) {
+    if (n <= 1) return 0;
+    var i = Math.floor(Math.random() * n);
+    if (i === avoid) i = (i + 1) % n;
+    return i;
   }
 
   /* Some playlists do not take from playerVars alone and need loading once the
@@ -87,6 +110,6 @@
      house list is mostly playlists, so the ordinary host it is. */
   window.JukeCore = {
     K: K, store: store, parse: parse, api: api, varsFor: varsFor, kick: kick, why: why,
-    HOST: 'https://www.youtube.com'
+    shuffled: shuffled, pick: pick, HOST: 'https://www.youtube.com'
   };
 })();
