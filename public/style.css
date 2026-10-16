@@ -58,6 +58,14 @@ button { cursor:pointer; }
   backdrop-filter:blur(26px); border:1px solid var(--line); border-radius:24px; padding:34px 30px; text-align:center;
   box-shadow:0 30px 90px -30px #000; }
 .gatebox .bmark { width:42px; height:42px; font-size:19px; border-radius:13px; margin:0 auto 16px; }
+.gatebox .bmark.ec { width:62px; height:62px; border-radius:0; margin:0 auto 14px; }
+/* A montage behind the sign-in card needs darkening everywhere, not only at
+   the foot of the frame. Enough to keep the card readable, light enough that
+   you can still see the footage — the card does the rest with its own blur. */
+.gate .bg::after { background:
+  radial-gradient(ellipse 95% 85% at 50% 50%, rgba(7,7,13,.45), rgba(7,7,13,.72) 58%, rgba(7,7,13,.9)); }
+.gate .bg > video.vid, .gate .bg > img.real { filter:saturate(1.05) }
+.gatebox { background:rgba(11,11,17,.82); backdrop-filter:blur(30px) saturate(140%); }
 .gatebox h1 { font-size:1.75rem; margin-bottom:7px; }
 .gatebox p { color:var(--dim); font-size:14.5px; margin:0 0 24px; }
 .scopes { text-align:left; background:var(--surf); border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin:0 0 18px; }
@@ -73,8 +81,16 @@ header.top { position:sticky; top:0; z-index:60; background:rgba(9,9,15,.72);
 .topin { display:flex; align-items:center; gap:22px; height:62px; }
 .brand { display:flex; align-items:center; gap:10px; flex:none; }
 .bmark { width:30px; height:30px; border-radius:9px; background:linear-gradient(135deg,var(--iris),var(--aqua));
-  display:grid; place-items:center; font-size:14px; font-weight:800; color:#09090F; overflow:hidden; }
+  display:grid; place-items:center; font-size:14px; font-weight:800; color:#09090F; overflow:hidden; flex:none; }
 .bmark img { width:100%; height:100%; object-fit:cover; }
+.bmark.ec { background:none; border-radius:0; overflow:visible; }
+.ecmark { display:block; width:100%; height:100%; overflow:visible; }
+.ec-orbit { transform-origin:60px 60px; animation:ecspin 6s linear infinite; }
+.ec-occ { animation:ecbreathe 6s cubic-bezier(.42,0,.58,1) infinite; }
+.ec-halo { opacity:.55; }
+@keyframes ecspin { to { transform:rotate(360deg) } }
+@keyframes ecbreathe { 0%,100% { transform:translateX(15px) } 50% { transform:translateX(40px) } }
+@media (prefers-reduced-motion:reduce) { .ec-orbit, .ec-occ { animation:none } }
 .bname { font-size:16px; font-weight:700; letter-spacing:-.03em; }
 nav.main { display:flex; gap:2px; }
 .nv { background:none; border:0; color:var(--dim); font-size:14.5px; font-weight:600;
@@ -471,8 +487,10 @@ footer p { margin:0 0 4px; }
 .jukebtn svg { width:17px; height:17px; }
 .juketitle { background:none; border:0; color:var(--txt); font-size:13.5px; font-weight:600;
   max-width:190px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:0 4px; }
-.juke:not(.open) .juketitle, .juke:not(.open) .jukebtn[data-toggle] { display:none; }
-.juke.playing .jukebtn[data-open] { border-color:rgba(124,92,255,.55); color:var(--aqua);
+.juke:not(.open) .juketitle { display:none; }
+.jukebtn[data-open] { color:var(--dim); }
+.jukebtn[data-open]:hover { color:var(--aqua); }
+.juke.playing .jukebtn[data-toggle] { border-color:rgba(124,92,255,.55); color:var(--aqua);
   animation:jukepulse 2.2s ease-in-out infinite; }
 @keyframes jukepulse { 0%,100% { box-shadow:0 0 0 0 rgba(124,92,255,.45) } 70% { box-shadow:0 0 0 10px rgba(124,92,255,0) } }
 .jukenote { max-width:250px; margin:0 6px 2px; color:var(--amber); }
@@ -517,7 +535,7 @@ body.jukewin { margin:0; min-height:100vh; display:flex; flex-direction:column; 
 .jukedel { border:0; background:none; color:var(--faint); font-size:13px; padding:6px 8px; border-radius:8px; }
 .jukedel:hover { color:var(--rose); background:var(--surf); }
 .jukeadd { display:grid; gap:7px; }
-@media (prefers-reduced-motion:reduce) { .juke.playing .jukebtn[data-open] { animation:none } }
+@media (prefers-reduced-motion:reduce) { .juke.playing .jukebtn[data-toggle] { animation:none } }
 
 #jukeinline { position:fixed; left:-10000px; top:0; width:300px; height:170px; opacity:0; pointer-events:none; }
 #jukeinline iframe { width:100%; height:100%; border:0; }
@@ -525,3 +543,4 @@ body.jukewin { margin:0; min-height:100vh; display:flex; flex-direction:column; 
 label.check { display:flex; gap:10px; align-items:flex-start; font-size:14px; color:var(--dim); cursor:pointer; }
 label.check input { margin-top:3px; accent-color:var(--iris); flex:none; }
 label.check span { min-width:0; }
+.jukehint .row { gap:7px; }

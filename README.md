@@ -213,6 +213,27 @@ Stills are capped at 12MB, video at 64MB.
 
 ---
 
+## The sign-in screen
+
+What people see before they are let in: the eclipse mark, the site name, what
+the Discord sign-in will read, and the button.
+
+Behind it you can put **a montage**. **Settings → Site → The sign-in screen**
+takes a video or a still, same limits as the hero — 64MB for video, 12MB for a
+picture. It plays muted and looping, which is the only way any browser will
+start a video on its own.
+
+That slot lives in Settings rather than on the page itself for the obvious
+reason: you have to be signed in to replace a picture, and nobody looking at the
+sign-in screen is signed in.
+
+Use **MP4 (H.264)** or **WebM**. Both play everywhere that matters. Keep it
+short and loop-friendly — ten to twenty seconds is plenty, and the file is
+served to everyone who opens the site, so a 60MB montage is a 60MB download.
+
+A dark montage looks best. The scrim over it is tuned so the card stays readable
+even over bright footage, but gameplay at night is what it is built for.
+
 ## The Jukebox
 
 Shared music, ported from the Bard's corner on the Bruma site.
@@ -221,12 +242,16 @@ A small player sits bottom-left on every page and plays right there. Because
 each tab on the site is a fresh page load, it saves where it got to and picks up
 from the same second on the next page — a short gap, not a restart.
 
-For gapless listening, the **pop-out** button moves the music into its own small
-window, which the navigation never touches. The inline player stands down the
-moment that window appears, so you never get two at once. The two halves talk
-over a BroadcastChannel with a localStorage heartbeat as backup, so the mini bar
-always shows what is actually playing and its buttons drive whichever player is
-live.
+Anyone who would rather it never cut out can press the **pop-out** button in the
+bar, which moves the music into its own small window the navigation never
+touches. It sits in the bar whether or not anything is playing, and only
+disappears once that window is the thing playing. First-time visitors get a note
+pointing it out, with a button to do it there and then.
+
+The inline player stands down the moment the window appears, so you never get two
+at once. The two halves talk over a BroadcastChannel with a localStorage
+heartbeat as backup, so the bar always shows what is actually playing and its
+buttons drive whichever player is live.
 
 ### YouTube and YouTube Music
 
