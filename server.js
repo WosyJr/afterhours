@@ -1097,6 +1097,7 @@ if (require.main === module) {
     Guests.start();
     OTD.start();
     Voice.start();
+    Voice.warm().catch(() => {});
     G.on('promoted', m => {
       const c = config();
       const ch = c.memoriesChannel || c.announceChannel;

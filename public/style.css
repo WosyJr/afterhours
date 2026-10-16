@@ -759,3 +759,7 @@ body.hasjuke { padding-bottom:124px; }
 .ovl { display:grid; gap:9px; }
 .ovl code { display:block; background:var(--surf2); border:1px solid var(--line); border-radius:9px;
   padding:9px 11px; font-size:12px; overflow-wrap:anywhere; }
+
+label.btn.pick { position:static; display:inline-flex; cursor:pointer; }
+label.btn.pick input { position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
+label.btn.pick.busy { opacity:.65; pointer-events:none; }
