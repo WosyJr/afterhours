@@ -1,0 +1,184 @@
+const S = require('./store');
+const D = require('./discord');
+const G = require('./gateway');
+const St = require('./streams');
+const Steam = require('./steam');
+
+const API = 'https://discord.com/api/v10';
+const TOKEN = process.env.DISCORD_BOT_TOKEN || '';
+const GUILD = process.env.DISCORD_GUILD_ID || '';
+const SITE = require('./site').siteUrl();
+
+let appId = null;
+
+function log() { console.log.apply(console, ['[commands]'].concat([].slice.call(arguments))); }
+
+const DEFS = [
+  { name: 'quote', type: 1, description: 'Save a line to Memories',
+    options: [
+      { name: 'line', type: 3, description: 'What was said', required: true },
+      { name: 'who', type: 6, description: 'Who said it', required: false }
+    ] },
+  { name: 'tonight', type: 1, description: 'Who is playing and what spots are left' },
+  { name: 'next', type: 1, description: 'The next game night' },
+  { name: 'live', type: 1, description: 'Who is streaming right now' },
+  { name: 'deals', type: 1, description: 'Anything on sale that two or more of you want' },
+  { name: 'Save as quote', type: 3 }
+];
+
+async function whoAmI() {
+  if (appId) return appId;
+  if (process.env.DISCORD_CLIENT_ID) { appId = process.env.DISCORD_CLIENT_ID; return appId; }
+  const r = await fetch(API + '/oauth2/applications/@me', { headers: { Authorization: 'Bot ' + TOKEN } });
+  if (!r.ok) throw new Error('applications/@me ' + r.status);
+  const j = await r.json();
+  appId = j.id;
+  return appId;
+}
+
+/* Guild commands update immediately; global ones take about an hour. */
+async function register() {
+  if (!TOKEN || !GUILD) return;
+  try {
+    const id = await whoAmI();
+    const r = await fetch(API + '/applications/' + id + '/guilds/' + GUILD + '/commands', {
+      method: 'PUT',
+      headers: { Authorization: 'Bot ' + TOKEN, 'Content-Type': 'application/json' },
+      body: JSON.stringify(DEFS)
+    });
+    if (!r.ok) {
+      const t = await r.text().catch(() => '');
+      log('register failed', r.status, t.slice(0, 160));
+      return;
+    }
+    log('registered', DEFS.length, 'commands');
+  } catch (e) {
+    log('register error', e.message);
+  }
+}
+
+async function reply(inter, content, ephemeral) {
+  await fetch(API + '/interactions/' + inter.id + '/' + inter.token + '/callback', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type: 4, data: { content: content, flags: ephemeral ? 64 : 0 } })
+  }).catch(() => {});
+}
+
+function nameOf(uid) {
+  const m = G.live.members[uid];
+  if (m) return m.nick || m.global_name || m.username;
+  const u = S.read('users', {})[uid];
+  return u ? u.name : 'Someone';
+}
+
+function optionMap(opts) {
+  const o = {};
+  (opts || []).forEach(x => { o[x.name] = x.value; });
+  return o;
+}
+
+/* ---------- handlers ---------- */
+
+async function doQuote(inter) {
+  const o = optionMap(inter.data.options);
+  const line = String(o.line || '').slice(0, 400);
+  const said = o.who ? nameOf(o.who) : null;
+  const by = inter.member && inter.member.user ? inter.member.user : (inter.user || {});
+
+  const msgs = S.read('messages', []);
+  msgs.unshift({
+    id: 'cmd' + Date.now(),
+    kind: 'memories',
+    channel: inter.channel_id,
+    author: { id: by.id, name: by.global_name || by.username, avatar: D.avatarUrl(by) },
+    text: said ? '“' + line + '” — ' + said : '“' + line + '”',
+    attachments: [], embeds: [], reactions: { '\u{1F4CC}': 1 }, pinned: true,
+    at: Date.now()
+  });
+  S.write('messages', msgs.slice(0, 400));
+  await reply(inter, '\u{1F4CC}  Saved to Memories.' + (SITE ? ' ' + SITE + '/clips' : ''));
+}
+
+async function doContextQuote(inter) {
+  const id = inter.data.target_id;
+  const res = inter.data.resolved && inter.data.resolved.messages;
+  const m = res && res[id];
+  if (!m) return reply(inter, 'Could not read that message.', true);
+
+  const msgs = S.read('messages', []);
+  const already = msgs.find(x => x.id === m.id);
+  if (already) {
+    already.kind = 'memories';
+    already.pinned = true;
+  } else {
+    msgs.unshift({
+      id: m.id, kind: 'memories', channel: inter.channel_id,
+      author: { id: m.author.id, name: m.author.global_name || m.author.username, avatar: D.avatarUrl(m.author) },
+      text: m.content || '',
+      attachments: (m.attachments || []).map(a => ({
+        url: a.url, name: a.filename,
+        image: /^image\//.test(a.content_type || ''), video: /^video\//.test(a.content_type || '')
+      })),
+      embeds: [], reactions: { '\u{1F4CC}': 1 }, pinned: true,
+      at: m.timestamp ? Date.parse(m.timestamp) : Date.now()
+    });
+  }
+  S.write('messages', msgs.slice(0, 400));
+  await reply(inter, '\u{1F4CC}  Pinned to Memories.' + (SITE ? ' ' + SITE + '/clips' : ''), true);
+}
+
+async function doTonight(inter) {
+  const list = S.read('sessions', []).filter(s => s.at > Date.now() - 20 * 3600000);
+  if (!list.length) return reply(inter, 'Nothing on yet. Open one at ' + (SITE || 'the site') + '.');
+  const lines = list.map(s =>
+    '• **' + s.game + '** — ' + s.when + ', ' + s.hostName +
+    ' — ' + s.players.length + '/' + s.cap + (s.players.length >= s.cap ? ' (full)' : ' (' + (s.cap - s.players.length) + ' free)'));
+  await reply(inter, '**Playing tonight**\n' + lines.join('\n') + (SITE ? '\n' + SITE : ''));
+}
+
+async function doNext(inter) {
+  const ev = S.read('event', null);
+  if (!ev) return reply(inter, 'Nothing locked in yet. Vote on a time at ' + (SITE || 'the site') + '/play.');
+  const who = (ev.going || []).map(nameOf);
+  await reply(inter, '**' + ev.label + '**\n' +
+    (who.length ? who.length + ' going: ' + who.join(', ') : 'Nobody has RSVPd yet') +
+    (SITE ? '\n' + SITE + '/play' : ''));
+}
+
+async function doLive(inter) {
+  const ls = St.liveList();
+  if (!ls.length) return reply(inter, 'Nobody is live right now.');
+  const lines = ls.map(s =>
+    '• **' + nameOf(s.uid) + '** on ' + (s.platform === 'twitch' ? 'Twitch' : 'YouTube') +
+    (s.game ? ' — ' + s.game : '') + (s.viewers != null ? ' (' + s.viewers + ' watching)' : '') + '\n  ' + s.url);
+  await reply(inter, '**Live now**\n' + lines.join('\n'));
+}
+
+async function doDeals(inter) {
+  const ds = Steam.deals().slice(0, 5);
+  if (!ds.length) return reply(inter, 'Nothing you both want is on sale.');
+  const lines = ds.map(d =>
+    '• **' + d.name + '** — ' + d.price.cut + '% off, ' +
+    Steam.money(d.price.final, d.price.currency) +
+    ' — ' + d.who.length + ' want it\n  https://store.steampowered.com/app/' + d.appid);
+  await reply(inter, '**On sale**\n' + lines.join('\n'));
+}
+
+async function handle(inter) {
+  try {
+    if (inter.type !== 2) return;
+    const name = inter.data && inter.data.name;
+    if (inter.data.type === 3) return doContextQuote(inter);
+    if (name === 'quote') return doQuote(inter);
+    if (name === 'tonight') return doTonight(inter);
+    if (name === 'next') return doNext(inter);
+    if (name === 'live') return doLive(inter);
+    if (name === 'deals') return doDeals(inter);
+  } catch (e) {
+    log('handle', e.message);
+    reply(inter, 'That did not work: ' + e.message, true).catch(() => {});
+  }
+}
+
+module.exports = { register, handle, DEFS };
