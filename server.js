@@ -278,24 +278,53 @@ app.post('/settings/music', need('settings'), (req, res) => {
 });
 
 app.post('/games/scan', need('view'), async (req, res) => {
-  const prof = S.read('profiles', {})[req.ctx.me.id] || {};
-  if (!prof.steam) {
-    return res.redirect('/play/library?scanerr=' + encodeURIComponent('Link a Steam account on your profile first.'));
+  const me = req.ctx.me;
+  const who = String(req.body.who || me.id);
+  const forSelf = who === me.id;
+  if (!forSelf && !req.ctx.perms.members) {
+    return res.redirect('/play/library?scanerr=' + encodeURIComponent('You can only scan your own library.'));
   }
+
+  const profs = S.read('profiles', {});
+  const typed = String(req.body.steam || '').trim();
+  let id = (profs[who] || {}).steam || '';
+
+  if (typed) {
+    let resolved;
+    try {
+      resolved = await Steam.resolve(typed);
+    } catch (e) {
+      resolved = null;
+    }
+    if (!resolved) {
+      return res.redirect('/play/library?scanerr=' + encodeURIComponent(
+        'That is not a SteamID64 or a profile URL I can resolve. The ID is the 17-digit number.') + '#scan');
+    }
+    id = resolved;
+    profs[who] = profs[who] || {};
+    profs[who].steam = id;
+    S.write('profiles', profs);
+  }
+
+  if (!id) {
+    return res.redirect('/play/library?scanerr=' + encodeURIComponent('Put a SteamID64 in first.') + '#scan');
+  }
+
   let r;
   try {
-    r = await Steam.syncLibrary(req.ctx.me.id, String(prof.steam), {
-      minMinutes: req.body.played === 'on' ? 1 : 0,
-      limit: 300
-    });
+    r = await Steam.syncLibrary(who, id, { minMinutes: req.body.played === 'on' ? 1 : 0, limit: 300 });
   } catch (e) {
-    return res.redirect('/play/library?scanerr=' + encodeURIComponent(e.message.slice(0, 140)));
+    return res.redirect('/play/library?scanerr=' + encodeURIComponent(e.message.slice(0, 140)) + '#scan');
   }
-  if (!r.ok) return res.redirect('/play/library?scanerr=' + encodeURIComponent(r.why));
-  if (r.empty) return res.redirect('/play/library?scanerr=' + encodeURIComponent('Steam says that account owns nothing.'));
+  if (!r.ok) return res.redirect('/play/library?scanerr=' + encodeURIComponent(r.why) + '#scan');
+
+  const name = forSelf ? 'You' : (require('./lib/streampages').memberName(who) || 'They');
+  if (r.empty) {
+    return res.redirect('/play/library?scanerr=' + encodeURIComponent('Steam says that account owns nothing.') + '#scan');
+  }
   const msg = 'Read ' + r.total + ' game' + (r.total === 1 ? '' : 's') + ' off Steam. ' +
-    r.added + ' new to the list, and you are now down as owning ' + r.joined + '.';
-  res.redirect('/play/library?scan=' + encodeURIComponent(msg));
+    r.added + ' new to the list, and ' + (forSelf ? 'you are' : name + ' is') + ' now down as owning ' + r.joined + '.';
+  res.redirect('/play/library?scan=' + encodeURIComponent(msg) + '#scan');
 });
 
 app.post('/calendar/add', need('session'), (req, res) => {
@@ -381,10 +410,16 @@ app.post('/settings/reactroles', need('settings'), async (req, res) => {
   const chans = Object.values(G.live.channels).filter(c => c.type === 0).map(c => c.id);
   const ch = chans.indexOf(String(req.body.rrChannel || '')) > -1 ? String(req.body.rrChannel) : '';
   const bad = RR.unknownIn(req.body.rrPairs);
+  const badEmoji = RR.badEmojiIn(req.body.rrPairs);
   try {
     await RR.setPairs(req.body.rrPairs, ch, req.body.rrTitle, req.body.rrBlurb);
   } catch (e) {
     return res.redirect('/settings/discord?rrerr=' + encodeURIComponent(e.message.slice(0, 140)));
+  }
+  if (badEmoji.length) {
+    return res.redirect('/settings/discord?rrerr=' + encodeURIComponent(
+      'Skipped ' + badEmoji.slice(0, 5).join(', ') + ' — that name is not one Discord knows. ' +
+      'Paste the emoji itself rather than its :name:.'));
   }
   if (bad.length) {
     return res.redirect('/settings/discord?rrerr=' +

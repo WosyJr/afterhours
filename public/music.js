@@ -120,9 +120,9 @@
     return box;
   }
 
-  function start(idx, t, quiet) {
+  function start(idx, t, quiet, noArm) {
     if (!house.length || winAlive()) return;
-    if (quiet) arm();
+    if (quiet && !noArm) arm();
     idx = ((idx % house.length) + house.length) % house.length;
     var tr = house[idx];
     now = { src: 'house', idx: idx, t: t || 0, playing: true };
@@ -141,7 +141,7 @@
             try { e.target.setVolume(vol); e.target.playVideo(); } catch (x) {}
             if (tr.list) setTimeout(function () { if (!playing()) C.kick(player, tr); }, 900);
             setTimeout(function () {
-              if (playing()) { blocked = false; muted = false; paint(); return; }
+              if (playing()) { blocked = false; muted = false; store.set(K.eng, true); paint(); return; }
               try { e.target.mute(); e.target.playVideo(); } catch (x) {}
               setTimeout(function () {
                 if (playing()) {
@@ -181,6 +181,8 @@
     });
   }
 
+  function engaged() { return store.get(K.eng, false); }
+
   function stall(tr) {
     if (stalled) return;
     stalled = setTimeout(function () {
@@ -206,7 +208,8 @@
       document.removeEventListener('touchstart', fire, true);
       armed = false;
       muted = false;
-      if (!player) { if (house.length) start(now ? now.idx : 0, now ? now.t : 0, true); return; }
+      store.set(K.eng, true);
+      if (!player) { if (house.length) start(now ? now.idx : 0, now ? now.t : 0, true, true); return; }
       try {
         if (player.unMute) player.unMute();
         player.setVolume(vol);

@@ -1,7 +1,7 @@
 (function () {
   var K = {
     now: 'ahJukeNow', mine: 'ahJukeMine', vol: 'ahJukeVol',
-    beat: 'ahJukeBeat', seen: 'ahJukeSeen', off: 'ahJukeOff', shuf: 'ahJukeShuf', tiny: 'ahJukeTiny'
+    beat: 'ahJukeBeat', seen: 'ahJukeSeen', off: 'ahJukeOff', shuf: 'ahJukeShuf', tiny: 'ahJukeTiny', eng: 'ahJukeEngaged'
   };
 
   var store = {
@@ -40,17 +40,22 @@
   }
 
   function api(then) {
-    if (window.YT && window.YT.Player) return then(true);
+    var fired = false;
+    var once = function (ok) { if (fired) return; fired = true; then(ok); };
+    if (window.YT && window.YT.Player) return once(true);
+
+    setTimeout(function () { once(!!(window.YT && window.YT.Player)); }, 10000);
+
     var prev = window.onYouTubeIframeAPIReady;
     window.onYouTubeIframeAPIReady = function () {
       if (typeof prev === 'function') { try { prev(); } catch (e) {} }
-      then(true);
+      once(true);
     };
     if (document.getElementById('ytapi')) return;
     var s = document.createElement('script');
     s.id = 'ytapi';
     s.src = 'https://www.youtube.com/iframe_api';
-    s.onerror = function () { then(false); };
+    s.onerror = function () { once(false); };
     document.head.appendChild(s);
   }
 

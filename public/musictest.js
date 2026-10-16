@@ -38,9 +38,23 @@
     holder.appendChild(mount);
     paint(row, 'wait', 'Asking YouTube…');
 
+    var guard = setTimeout(function () {
+      if (done) return;
+      var n = 0;
+      try { n = ((row.player && row.player.getPlaylist && row.player.getPlaylist()) || []).length; } catch (err) {}
+      if (track.list && n) {
+        finish('warn', 'Loads but will not start', 'YouTube handed over ' + n + ' track' + (n === 1 ? '' : 's') + ' and then played none of them. That is what a licensed music playlist does when the rights holder blocks off-site playback.');
+      } else if (!row.player) {
+        finish('bad', 'YouTube never answered', 'The player script did not load or never called back within 15 seconds. An ad blocker or a privacy extension blocking youtube.com is the usual cause — try again with it off for this site.');
+      } else {
+        finish('warn', 'No answer', 'YouTube neither played it nor gave an error within 15 seconds. Usually that means the embed is being blocked before it loads.');
+      }
+    }, 15000);
+
     function finish(state, text, detail) {
       if (done) return;
       done = true;
+      clearTimeout(guard);
       paint(row, state, text, detail);
       setTimeout(function () {
         try { row.player && row.player.destroy && row.player.destroy(); } catch (e) {}
@@ -91,16 +105,6 @@
         }
       });
 
-      setTimeout(function () {
-        if (done) return;
-        var n = 0;
-        try { n = (row.player.getPlaylist() || []).length; } catch (err) {}
-        if (track.list && n) {
-          finish('warn', 'Loads but will not start', 'YouTube handed over ' + n + ' track' + (n === 1 ? '' : 's') + ' and then played none of them. That is what a licensed music playlist does when the rights holder blocks off-site playback.');
-        } else {
-          finish('warn', 'No answer', 'YouTube neither played it nor gave an error within 12 seconds. Usually that means the embed is being blocked before it loads — an ad blocker or a privacy extension is the usual cause.');
-        }
-      }, 12000);
     });
   }
 

@@ -651,3 +651,15 @@ label.check span { min-width:0; }
 .btn[disabled] { opacity:.45; cursor:not-allowed; }
 .sech { font-size:1.05rem; margin:18px 0 11px; }
 @media (max-width:620px) { .cald { min-height:58px; } .calchip { display:none; } .cald.has .caldn { color:var(--iris); } }
+
+.scanrow { display:grid; grid-template-columns:minmax(120px,1fr) minmax(0,1.4fr) auto auto; gap:10px;
+  align-items:center; padding:9px 0; border-bottom:1px solid var(--line); margin:0; }
+.scanrow:last-child { border-bottom:0; }
+.scanwho { display:flex; align-items:center; gap:8px; min-width:0; font-size:14px; }
+.scanwho b { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.scanlast { white-space:nowrap; font-size:12px; }
+.scanbtns { display:flex; gap:6px; }
+@media (max-width:760px) {
+  .scanrow { grid-template-columns:minmax(0,1fr); gap:7px; }
+  .scanlast, .scanbtns { grid-column:1; }
+}
