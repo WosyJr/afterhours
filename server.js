@@ -1040,8 +1040,30 @@ app.use((req, res) => res.status(404).send('Not found'));
    answers with HTML, which the page cannot read, so it looks like a hang. */
 app.use((err, req, res, next) => {
   const big = err && (err.type === 'entity.too.large' || err.status === 413 || err.statusCode === 413);
-  if (!big) console.error('[afterhours]', (err && err.message) || err);
+  if (!big) {
+    console.error('[afterhours] ' + (req.method || '') + ' ' + (req.originalUrl || ''));
+    console.error((err && err.stack) || err);
+  }
   if (res.headersSent) return next(err);
+
+  const ctx = (() => { try { return req.ctx || ctxFor(req); } catch (e) { return null; } })();
+  const owner = !!(ctx && ctx.me && ctx.cfg && ctx.me.id === ctx.cfg.ownerId);
+  const wantsHtml = /text\/html/.test(String(req.headers.accept || '')) && req.method === 'GET';
+
+  if (!big && wantsHtml) {
+    res.status(500).type('html').send('<!doctype html><meta charset="utf-8">' +
+      '<title>Something broke</title>' +
+      '<style>body{background:#09090F;color:#E8E8F0;font:15px/1.6 system-ui,sans-serif;padding:40px;max-width:70ch}' +
+      'a{color:#9B86FF}pre{background:#14141F;border:1px solid #262636;border-radius:12px;padding:14px;' +
+      'overflow:auto;font-size:12.5px;white-space:pre-wrap}h1{font-size:1.3rem}</style>' +
+      '<h1>That page did not load</h1>' +
+      '<p>The rest of the site is probably fine. <a href="/">Go back</a>.</p>' +
+      (owner ? '<p>Because you are the owner, here is what actually went wrong:</p><pre>' +
+        V.esc(String((err && err.stack) || err).slice(0, 2000)) + '</pre>'
+        : '<p>Ask the owner to look at the server log.</p>'));
+    return;
+  }
+
   res.status(big ? 413 : 500).json({
     ok: false,
     error: big
