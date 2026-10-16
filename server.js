@@ -54,6 +54,8 @@ const FM = require('./lib/fivemin');
 const Fc = require('./lib/forecast');
 const Ladder = require('./lib/ladder');
 const Badges = require('./lib/badges');
+const Guests = require('./lib/guests');
+const Apply = require('./lib/apply');
 const Staff2 = require('./lib/staff');
 const SPname = id => require('./lib/streampages').memberName(id);
 const Staff = require('./lib/staff');
@@ -459,6 +461,77 @@ app.post('/settings/reactroles/react', need('settings'), async (req, res) => {
   } catch (e) {
     res.redirect('/settings/discord?rrerr=' + encodeURIComponent(e.message.slice(0, 140)));
   }
+});
+
+app.get('/apply', (req, res) => {
+  const ctx = ctxFor(req);
+  const cfg = ctx.cfg;
+  if (!cfg.applyOpen) return res.redirect('/');
+  if (ctx.me && ctx.perms.view) return res.redirect('/');
+  const mine = ctx.me ? Apply.forUser(ctx.me.id) : null;
+  res.send(V.applyPage(cfg, ctx.me, mine, req.query.e, U.siteImage('gate-bg')));
+});
+
+app.post('/apply', (req, res) => {
+  const ctx = ctxFor(req);
+  if (!ctx.cfg.applyOpen) return res.redirect('/');
+  if (!ctx.me) return res.redirect('/login');
+  let row;
+  try {
+    row = Apply.create(
+      { id: ctx.me.id, name: ctx.me.name, avatar: ctx.me.avatar },
+      { why: req.body.why, who: req.body.who, games: req.body.games }
+    );
+  } catch (e) {
+    return res.redirect('/apply?e=' + encodeURIComponent(e.message.slice(0, 120)));
+  }
+  Apply.post(row).catch(() => {});
+  res.redirect('/apply');
+});
+
+app.get('/pass/:code', (req, res) => {
+  const ctx = ctxFor(req);
+  const g = Guests.get(String(req.params.code || ''));
+  res.send(V.passPage(ctx.cfg, ctx.me, g, Guests, req.query.e, req.query.ok, U.siteImage('gate-bg')));
+});
+
+app.post('/pass/:code', async (req, res) => {
+  const ctx = ctxFor(req);
+  const code = String(req.params.code || '');
+  if (!ctx.me) return res.redirect('/login');
+  const r = await Guests.redeem(code, ctx.me.id, ctx.me.name);
+  if (!r.ok) return res.redirect('/pass/' + code + '?e=' + encodeURIComponent(r.why.slice(0, 140)));
+  res.redirect('/pass/' + code + '?ok=1');
+});
+
+app.post('/settings/guests', need('settings'), (req, res) => {
+  try {
+    const g = Guests.make({
+      role: req.body.role, hours: req.body.hours, uses: req.body.uses,
+      note: req.body.note, by: req.ctx.me.id, byName: req.ctx.me.name
+    });
+    res.redirect('/settings/discord?pass=' + encodeURIComponent(g.code));
+  } catch (e) {
+    res.redirect('/settings/discord?rankerr=' + encodeURIComponent(e.message.slice(0, 140)));
+  }
+});
+
+app.post('/settings/guests/revoke', need('settings'), (req, res) => {
+  Guests.revoke(String(req.body.code || ''));
+  res.redirect('/settings/discord?saved=guests');
+});
+
+app.post('/settings/apply', need('settings'), (req, res) => {
+  const cfg = config();
+  const text = Object.values(G.live.channels).filter(c => c.type === 0).map(c => c.id);
+  const roleIds = (G.live.roles || []).filter(r => !r.managed).map(r => r.id);
+  cfg.applyOpen = req.body.applyOpen === 'on';
+  cfg.applyChannel = text.indexOf(String(req.body.applyChannel || '')) > -1 ? String(req.body.applyChannel) : '';
+  cfg.applyRole = roleIds.indexOf(String(req.body.applyRole || '')) > -1 ? String(req.body.applyRole) : '';
+  cfg.applyVotes = Math.max(1, Math.min(10, Number(req.body.applyVotes) || 1));
+  cfg.promoteAt = Math.max(0, Math.min(50, Number(req.body.promoteAt) || 0));
+  S.write('config', cfg);
+  res.redirect('/settings/discord?saved=apply');
 });
 
 app.post('/settings/ranks', need('settings'), async (req, res) => {
@@ -880,6 +953,14 @@ if (require.main === module) {
     FM.start();
     Fc.start();
     Ladder.start();
+    Guests.start();
+    G.on('promoted', m => {
+      const c = config();
+      const ch = c.memoriesChannel || c.announceChannel;
+      if (!ch) return;
+      const total = Object.keys(m.reactions || {}).reduce((n, k) => n + (m.reactions[k] || 0), 0);
+      D.post(ch, Embeds.promoted(m, total)).catch(() => {});
+    });
     G.on('reaction', (d, up) => RR.onReaction(d, up));
     U.sweepParts();
     setInterval(() => U.sweepParts(), 3600000).unref();
