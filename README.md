@@ -65,10 +65,13 @@ sale alerts**.
 
 ### 5. Twitch and YouTube live detection
 
-**Twitch** — go to <https://dev.twitch.tv/console/apps>, register an application,
-and copy the **Client ID** and **Client Secret** into `TWITCH_CLIENT_ID` and
-`TWITCH_CLIENT_SECRET`. Nobody has to log in with Twitch; the site uses an app
-token it fetches itself. Twitch gives the stream title, game, viewer count,
+**Twitch** — <https://dev.twitch.tv/console/apps> → **Register Your Application**.
+Any name, OAuth Redirect URL `http://localhost` (the site never uses it but the
+form demands one), category **Website Integration**, client type **Confidential**.
+Create it, then **Manage** → copy the **Client ID**, press **New Secret** and copy
+that too, into `TWITCH_CLIENT_ID` and `TWITCH_CLIENT_SECRET`. You need a Twitch
+account with two-factor turned on to reach that page. Nobody else logs in with
+Twitch; the site fetches its own app token. Twitch gives the stream title, game, viewer count,
 uptime and thumbnail.
 
 **YouTube** — nothing to set up. The site reads each linked channel's own
@@ -81,9 +84,34 @@ at roughly 100 checks a day for the whole site. With a handful of channels polle
 every minute you will blow through that before lunch, so the free check is
 usually the right call.
 
-Everyone links their own channels on their profile page.
+**Steam** — a key is optional. <https://steamcommunity.com/dev/apikey>, sign in,
+put your site's domain in the box, agree, copy the key into `STEAM_API_KEY`. The
+account needs to have spent at least a few pounds on Steam at some point, which
+is Valve's rule, not mine.
 
-### 6. Your server's ID
+Without a key everything still works — people just have to paste the full
+`steamcommunity.com/profiles/…` URL or their 17-digit SteamID64 instead of a
+custom name like `steamcommunity.com/id/wolfey`. The key is only there to turn
+custom names into IDs.
+
+Either way, **a Steam profile has to be set to public** or there is nothing to
+read. Steam's wishlist endpoint is not part of its documented API, so it is the
+one thing here that could change without warning.
+
+Everyone links their own accounts on their own profile card.
+
+### 6. One app covers everyone
+
+Worth being clear about, because it is the thing people get wrong: the Twitch
+and Steam keys below are **the site's**, not each person's. You set them once, on
+the server. Nobody else signs up for anything.
+
+What members do is paste their own channel name or profile on **Crew → People →
+their own card → Edit profile**: Twitch, YouTube and Steam, all in one save. The
+site then uses the server's keys to ask Twitch whether that channel is live and
+Steam what is on that wishlist.
+
+### 7. Your server's ID
 
 In Discord, turn on **Settings → Advanced → Developer Mode**, then right-click
 your server and **Copy Server ID**.
@@ -101,7 +129,7 @@ them straight in there, never into a file you commit.
 | `DISCORD_CLIENT_SECRET` | From OAuth2 |
 | `DISCORD_BOT_TOKEN` | From Bot → Reset Token |
 | `DISCORD_GUILD_ID` | Your server ID |
-| `SITE_URL` | Full public URL, no trailing slash |
+| `SITE_URL` | Full public URL **including `https://`**, no trailing slash |
 | `TWITCH_CLIENT_ID` | From dev.twitch.tv. Optional, but Twitch detection needs it |
 | `TWITCH_CLIENT_SECRET` | Same place |
 | `YOUTUBE_API_KEY` | Optional. Blank uses the free page check |
@@ -202,9 +230,24 @@ up live.
 
 ### A note on storage
 
-Data is JSON files in `DATA_DIR`. Railway's filesystem is wiped on redeploy, so
-attach a **Volume** mounted at `/data` and set `DATA_DIR=/data` to keep profiles,
-permissions and settings between deploys.
+Data is JSON files in `DATA_DIR`. Railway's filesystem is wiped on every
+redeploy, so without a volume everything disappears each time you push:
+profiles, permissions, the house list, stats, uploaded pictures and video.
+
+**Setting `DATA_DIR=/data` does not create a volume.** It only says where to
+write. Two separate steps:
+
+1. Open the service → **Settings → Volumes → Add Volume** → mount path `/data`
+2. Set `DATA_DIR=/data` in Variables
+
+Then redeploy. Until the volume exists the app writes to `/data` inside the
+container, which looks like it works right up until the moment it doesn't.
+
+**Settings → Site → Where your data lives** tells you which of those is
+happening, and the same thing is printed in the deploy log at boot. It reports
+the mount it can see, and a boot counter kept in the data directory itself — if
+the site has been deployed several times and still says nothing was there at
+boot, the storage is not surviving, whatever the variables claim.
 
 Pictures and video are written as real files under `DATA_DIR/uploads` and served
 from `/uploads`, so they live on the same Volume as everything else. One file per

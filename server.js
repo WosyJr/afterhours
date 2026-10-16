@@ -16,6 +16,8 @@ const Ach = require('./lib/achievements');
 const Steam = require('./lib/steam');
 const Cmd = require('./lib/commands');
 const Music = require('./lib/music');
+const Site = require('./lib/site');
+const Storage = require('./lib/storage');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -33,7 +35,7 @@ app.use(cookieSession({
   maxAge: 30 * 24 * 3600 * 1000,
   sameSite: 'lax',
   httpOnly: true,
-  secure: /^https:/.test(process.env.SITE_URL || '')
+  secure: /^https:/i.test(Site.siteUrl())
 }));
 
 function config() {
@@ -222,39 +224,34 @@ app.post('/profiles/me', need('view'), (req, res) => {
   res.redirect('/crew/people#me');
 });
 
-app.post('/profiles/channels', need('view'), (req, res) => {
+/* Twitch, YouTube and Steam in one save, from your own profile card. */
+app.post('/profiles/connections', need('view'), async (req, res) => {
   const all = S.read('profiles', {});
   const mine = all[req.ctx.me.id] || {};
+
   mine.twitch = String(req.body.twitch || '').replace(/^@/, '').replace(/^.*twitch\.tv\//, '').trim().slice(0, 40);
   mine.youtube = String(req.body.youtube || '').replace(/^.*youtube\.com\//, '').trim().slice(0, 60);
   if (!mine.twitch) delete mine.twitch;
   if (!mine.youtube) delete mine.youtube;
-  all[req.ctx.me.id] = mine;
-  S.write('profiles', all);
-  St.checkAll().catch(() => {});
-  res.redirect('/crew/people#me');
-});
 
-app.post('/steam/link', need('view'), async (req, res) => {
+  let err = '';
   const raw = String(req.body.steam || '').trim();
-  const all = S.read('profiles', {});
-  const mine = all[req.ctx.me.id] || {};
   if (!raw) {
     delete mine.steam;
   } else {
     const id = await Steam.resolve(raw).catch(() => null);
-    if (!id) {
-      all[req.ctx.me.id] = mine;
-      S.write('profiles', all);
-      return res.redirect('/play/deals?e=1');
-    }
-    mine.steam = id;
+    if (id) mine.steam = id;
+    else err = 'steam';
   }
+
   all[req.ctx.me.id] = mine;
   S.write('profiles', all);
-  Steam.refresh().catch(() => {});
-  res.redirect('/play/deals');
+  St.checkAll().catch(() => {});
+  if (mine.steam) Steam.refresh().catch(() => {});
+  res.redirect('/crew/people' + (err ? '?e=' + err : '') + '#me');
 });
+
+app.post('/profiles/channels', need('view'), (req, res) => res.redirect(307, '/profiles/connections'));
 
 app.post('/permissions/toggle', need('roles'), (req, res) => {
   const roles = G.live.roles;
@@ -308,7 +305,7 @@ app.post('/events/lock', need('event'), (req, res) => {
     if (ch) {
       D.post(ch, {
         content: '**' + (cfg.siteName || 'Afterhours') + '** — next night locked in: **' + s.label +
-          '**. ' + (process.env.SITE_URL || '')
+          '**. ' + Site.siteUrl()
       }).catch(() => {});
     }
     Ach.sweep().catch(() => {});
@@ -475,8 +472,10 @@ app.use((req, res) => res.status(404).send('Not found'));
 if (require.main === module) {
   app.listen(PORT, () => {
     console.log('[afterhours] listening on ' + PORT);
-    console.log('[afterhours] data in ' + S.DIR);
+    Storage.report();
     if (!D.configured()) console.log('[afterhours] Discord OAuth not configured yet');
+    console.log('[afterhours] site url ' + Site.siteUrl());
+    console.log('[afterhours] Discord redirect must be exactly ' + Site.siteUrl() + '/auth/callback');
     G.connect();
     St.start();
     Stats.start();
