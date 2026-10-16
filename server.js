@@ -43,6 +43,10 @@ const Steam = require('./lib/steam');
 const Cmd = require('./lib/commands');
 const Music = require('./lib/music');
 const Site = require('./lib/site');
+const Embeds = require('./lib/embeds');
+const RR = require('./lib/reactroles');
+const Greet = require('./lib/greet');
+const Staff = require('./lib/staff');
 const Storage = require('./lib/storage');
 const Widget = require('./lib/widget');
 
@@ -229,6 +233,11 @@ app.get('/music', need('view'), (req, res) => {
   res.type('html').send(Music.windowHtml(req.ctx.cfg));
 });
 
+app.get('/music/check', need('settings'), (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.type('html').send(Music.testHtml(req.ctx.cfg));
+});
+
 app.get('/music.json', need('view'), (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   const c = req.ctx.cfg;
@@ -253,6 +262,47 @@ app.post('/settings/music', need('settings'), (req, res) => {
   } catch (e) {
     res.redirect('/settings/site?musicerr=' + encodeURIComponent(e.message.slice(0, 120)));
   }
+});
+
+app.post('/settings/pings', need('settings'), (req, res) => {
+  const cfg = config();
+  const ids = (G.live.roles || []).map(r => r.id);
+  ['pingLive', 'pingNight', 'pingDeal'].forEach(k => {
+    const v = String(req.body[k] || '');
+    cfg[k] = ids.indexOf(v) > -1 ? v : '';
+  });
+  S.write('config', cfg);
+  res.redirect('/settings/discord?saved=pings');
+});
+
+app.post('/settings/reactroles', need('settings'), async (req, res) => {
+  const chans = Object.values(G.live.channels).filter(c => c.type === 0).map(c => c.id);
+  const ch = chans.indexOf(String(req.body.rrChannel || '')) > -1 ? String(req.body.rrChannel) : '';
+  const bad = RR.unknownIn(req.body.rrPairs);
+  try {
+    await RR.setPairs(req.body.rrPairs, ch, req.body.rrTitle, req.body.rrBlurb);
+  } catch (e) {
+    return res.redirect('/settings/discord?rrerr=' + encodeURIComponent(e.message.slice(0, 140)));
+  }
+  if (bad.length) {
+    return res.redirect('/settings/discord?rrerr=' +
+      encodeURIComponent('Skipped, because no role matches: ' + bad.slice(0, 4).join(', ')));
+  }
+  res.redirect('/settings/discord?saved=roles');
+});
+
+app.post('/settings/greet', need('settings'), (req, res) => {
+  const cfg = config();
+  const chans = Object.values(G.live.channels).filter(c => c.type === 0).map(c => c.id);
+  const roleIds = (G.live.roles || []).filter(r => !r.managed).map(r => r.id);
+  const ch = String(req.body.welcomeChannel || '');
+  const role = String(req.body.autoRole || '');
+  cfg.welcomeChannel = chans.indexOf(ch) > -1 ? ch : '';
+  cfg.autoRole = roleIds.indexOf(role) > -1 ? role : '';
+  cfg.welcomeText = String(req.body.welcomeText || '').slice(0, 900);
+  S.write('config', cfg);
+  Greet.note('');
+  res.redirect('/settings/discord?saved=greet');
 });
 
 /* ---------- form actions ---------- */
@@ -355,10 +405,7 @@ app.post('/events/lock', need('event'), (req, res) => {
     const cfg = config();
     const ch = cfg.announceChannel || cfg.liveChannel || cfg.memoriesChannel || cfg.mediaChannel;
     if (ch) {
-      D.post(ch, {
-        content: '**' + (cfg.siteName || 'Afterhours') + '** — next night locked in: **' + s.label +
-          '**. ' + Site.siteUrl()
-      }).catch(() => {});
+      D.post(ch, Embeds.night(S.read('event', {}))).catch(() => {});
     }
     Ach.sweep().catch(() => {});
   }
@@ -603,6 +650,8 @@ if (require.main === module) {
     Steam.start();
     Cmd.register();
     Widget.start();
+    Greet.start();
+    G.on('reaction', (d, up) => RR.onReaction(d, up));
     U.sweepParts();
     setInterval(() => U.sweepParts(), 3600000).unref();
   });
