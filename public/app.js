@@ -75,6 +75,25 @@
   /* ---------- picture and video slots ---------- */
   function mb(n) { return (n / 1048576).toFixed(n < 10485760 ? 1 : 0) + 'MB'; }
 
+  var CHUNK = 2 * 1024 * 1024;
+
+  function post(url, body, type, ms) {
+    return new Promise(function (resolve) {
+      var x = new XMLHttpRequest();
+      x.open('POST', url);
+      x.setRequestHeader('Content-Type', type || 'application/octet-stream');
+      x.timeout = ms || 60000;
+      x.onload = function () {
+        var j = {};
+        try { j = JSON.parse(x.responseText); } catch (e) {}
+        resolve({ status: x.status, body: j });
+      };
+      x.onerror = function () { resolve({ status: 0, body: {}, net: true }); };
+      x.ontimeout = function () { resolve({ status: 0, body: {}, timeout: true }); };
+      x.send(body);
+    });
+  }
+
   document.addEventListener('change', function (e) {
     var input = e.target.closest('[data-ph]');
     if (!input) return;
@@ -91,8 +110,9 @@
 
     var label = input.closest('.rep');
     var was = label.textContent;
+    var slot = input.dataset.ph;
     label.classList.add('busy');
-    label.textContent = 'Starting…';
+    label.textContent = 'Checking…';
 
     var holder = input.closest('.photo');
     var url = URL.createObjectURL(f);
@@ -120,30 +140,45 @@
       if (msg) alert(msg);
     }
 
-    /* XHR rather than fetch, because fetch cannot report upload progress and a
-       60MB montage over a home connection otherwise looks identical to a hang. */
-    var xhr = new XMLHttpRequest();
-    xhr.open('POST', '/api/upload?slot=' + encodeURIComponent(input.dataset.ph));
-    xhr.setRequestHeader('Content-Type', f.type || 'application/octet-stream');
-    xhr.timeout = 15 * 60 * 1000;
+    /* A proxy that will not pass one 60MB body will usually pass thirty small
+       ones, and when it still will not, the failure has a chunk number on it
+       instead of being a spinner that never stops. */
+    function run() {
+      post('/api/upload/ping', new Blob([new Uint8Array(8)]), 'application/octet-stream', 20000)
+        .then(function (r) {
+          if (r.status !== 200 || !r.body.ok) {
+            return done(r.timeout || r.net
+              ? 'The server never answered. Something between this page and the site is blocking uploads.'
+              : (r.body.error || 'The server turned the upload down (' + r.status + ').'));
+          }
 
-    xhr.upload.onprogress = function (ev) {
-      if (!ev.lengthComputable) { label.textContent = 'Uploading…'; return; }
-      var pct = Math.round((ev.loaded / ev.total) * 100);
-      label.textContent = pct < 100 ? pct + '% of ' + mb(f.size) : 'Saving…';
-    };
-    xhr.onload = function () {
-      var res = {};
-      try { res = JSON.parse(xhr.responseText); } catch (x) {}
-      if (xhr.status === 200 && res.ok) return done('');
-      if (xhr.status === 413) return done('That file is too big for the server to accept.');
-      if (xhr.status === 403) return done(res.error || 'Your rank cannot change that picture.');
-      done(res.error || ('The server refused it (' + xhr.status + ').'));
-    };
-    xhr.onerror = function () { done('The upload did not go through. Check your connection and try again.'); };
-    xhr.ontimeout = function () { done('The upload timed out. Try a shorter or smaller video.'); };
-    xhr.onabort = function () { done(''); };
-    xhr.send(f);
+          var id = Math.random().toString(36).slice(2) + Date.now().toString(36);
+          var n = Math.max(1, Math.ceil(f.size / CHUNK));
+          var i = 0;
+
+          function step() {
+            var from = i * CHUNK;
+            var piece = f.slice(from, Math.min(from + CHUNK, f.size));
+            var q = '/api/upload/chunk?slot=' + encodeURIComponent(slot) +
+              '&id=' + id + '&i=' + i + '&n=' + n +
+              '&size=' + f.size + '&ct=' + encodeURIComponent(f.type || '');
+            label.textContent = n === 1 ? 'Saving…' : Math.round((i / n) * 100) + '% of ' + mb(f.size);
+
+            post(q, piece, 'application/octet-stream', 120000).then(function (r) {
+              if (r.status === 200 && r.body.ok) {
+                i++;
+                if (i < n) return step();
+                return done('');
+              }
+              if (r.timeout) return done('Piece ' + (i + 1) + ' of ' + n + ' timed out. Try again, or use a smaller file.');
+              if (r.net) return done('The connection dropped on piece ' + (i + 1) + ' of ' + n + '.');
+              done(r.body.error || ('The server refused piece ' + (i + 1) + ' (' + r.status + ').'));
+            });
+          }
+          step();
+        });
+    }
+    run();
   });
 
   /* ---------- live refresh ---------- */

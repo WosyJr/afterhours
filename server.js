@@ -452,6 +452,70 @@ app.post('/api/pin', need('pin'), async (req, res) => {
 
 /* Pictures and video arrive as the raw request body, so nothing has to be
    base64'd into JSON and video stays a file on disk rather than a data URL. */
+/* Lets the page find out whether a POST carrying a binary body reaches us at
+   all, separately from whether a big one does. */
+app.post('/api/upload/ping', need('view'),
+  express.raw({ type: () => true, limit: '1mb' }),
+  (req, res) => res.json({ ok: true, got: (req.body && req.body.length) || 0 }));
+
+function slotAllowed(ctx, slot) {
+  if (/^banner-/.test(slot)) {
+    const uid = slot.slice(7);
+    if (uid === String(ctx.me.id).toLowerCase() || ctx.perms.members) return '';
+    return 'Not yours to change';
+  }
+  return ctx.perms.images ? '' : 'Your rank cannot change site pictures';
+}
+
+function land(ctx, slot, buf, ct) {
+  const out = U.save(slot, buf, ct);
+  if (out.error) return out;
+  if (/^banner-/.test(slot)) U.setBanner(slot.slice(7), out);
+  else U.setSiteImage(slot, out);
+  return out;
+}
+
+/* Uploads arrive in small pieces rather than one big request. A 60MB body in
+   one go has to survive every proxy between the browser and here, and when it
+   does not there is nothing to see; in pieces, a stall has a chunk number and
+   the log says which one never arrived. */
+app.post('/api/upload/chunk', need('view'),
+  express.raw({ type: () => true, limit: '8mb' }),
+  (req, res) => {
+    const slot = U.slotName(req.query.slot);
+    const id = String(req.query.id || '');
+    const i = Number(req.query.i);
+    const n = Number(req.query.n);
+    const ct = String(req.query.ct || '');
+    const size = Number(req.query.size) || 0;
+
+    if (!slot || !id || !isFinite(i) || !isFinite(n) || n < 1 || i < 0 || i >= n) {
+      return res.status(400).json({ ok: false, error: 'Bad upload request' });
+    }
+    const no = slotAllowed(req.ctx, slot);
+    if (no) return res.status(403).json({ ok: false, error: no });
+
+    const cap = U.limitFor(ct);
+    if (size > cap) {
+      return res.status(413).json({ ok: false, error: 'That file is larger than the server will take.' });
+    }
+
+    const got = U.appendPart(id, req.body || Buffer.alloc(0), i === 0);
+    if (got.error) return res.status(500).json({ ok: false, error: got.error });
+    console.log('[upload] ' + slot + ' chunk ' + (i + 1) + '/' + n + ' (' + got.size + ' bytes so far)');
+
+    if (i < n - 1) return res.json({ ok: true, got: got.size, done: false });
+
+    const buf = U.readPart(id);
+    U.dropPart(id);
+    if (!buf) return res.status(500).json({ ok: false, error: 'The pieces did not come back together.' });
+
+    const out = land(req.ctx, slot, buf, ct);
+    if (out.error) return res.status(400).json({ ok: false, error: out.error });
+    console.log('[upload] ' + slot + ' finished, ' + buf.length + ' bytes, ' + out.kind);
+    res.json({ ok: true, done: true, url: out.url, kind: out.kind });
+  });
+
 app.post('/api/upload', need('view'),
   express.raw({ type: () => true, limit: '66mb' }),
   (req, res) => {
@@ -461,21 +525,11 @@ app.post('/api/upload', need('view'),
 
     /* Your own banner is yours whatever your rank. Everything else on the
        site is a site image and needs that permission. */
-    if (/^banner-/.test(slot)) {
-      const uid = slot.slice(7);
-      const mine = uid === String(req.ctx.me.id).toLowerCase();
-      if (!mine && !req.ctx.perms.members) {
-        return res.status(403).json({ ok: false, error: 'Not yours to change' });
-      }
-    } else if (!req.ctx.perms.images) {
-      return res.status(403).json({ ok: false, error: 'Your rank cannot change site pictures' });
-    }
+    const no = slotAllowed(req.ctx, slot);
+    if (no) return res.status(403).json({ ok: false, error: no });
 
-    const out = U.save(slot, req.body, ct);
+    const out = land(req.ctx, slot, req.body, ct);
     if (out.error) return res.status(400).json({ ok: false, error: out.error });
-
-    if (/^banner-/.test(slot)) U.setBanner(slot.slice(7), out);
-    else U.setSiteImage(slot, out);
     res.json({ ok: true, url: out.url, kind: out.kind });
   });
 
@@ -540,6 +594,8 @@ if (require.main === module) {
     Ach.start();
     Steam.start();
     Cmd.register();
+    U.sweepParts();
+    setInterval(() => U.sweepParts(), 3600000).unref();
   });
 }
 
