@@ -903,3 +903,7 @@ label.btn.pick.busy { opacity:.65; pointer-events:none; }
 .gme { padding:0 14px 14px; border-top:1px solid var(--line); margin:0 0 0; padding-top:12px; }
 .yoursettings { margin-top:14px; }
 .yoursettings .pushbox { margin-top:0; border-top:0; padding-top:0; }
+
+.feat.livebg .photo > img.real, .feat.livebg .photo > video.vid { opacity:.3; filter:saturate(.75); }
+.feat.livebg .photo::before { content:""; position:absolute; inset:0; z-index:1;
+  background:linear-gradient(180deg,rgba(9,9,15,.5),rgba(9,9,15,.72)); }
