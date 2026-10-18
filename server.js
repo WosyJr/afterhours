@@ -488,7 +488,7 @@ app.get('/overlay/now', (req, res) => {
   if (String(req.query.k || '') !== Overlay.token()) return res.status(403).type('text/plain').send('Wrong key.');
   res.setHeader('Cache-Control', 'no-store');
   res.type('html').send(Overlay.nowPage({
-    key: req.query.k, align: req.query.align, scale: req.query.scale
+    key: req.query.k, align: req.query.align, scale: req.query.scale, plain: req.query.plain
   }));
 });
 
@@ -517,7 +517,7 @@ function overlayKey(req, res) {
 app.get('/sr', (req, res) => {
   if (String(req.query.k || '') !== Overlay.token()) return res.status(403).type('text/plain').send('Wrong key.');
   res.setHeader('Cache-Control', 'no-store');
-  res.type('html').send(Overlay.srPage({ key: req.query.k, compact: req.query.compact }));
+  res.type('html').send(Overlay.srPage({ key: req.query.k, compact: req.query.compact, plain: req.query.plain }));
 });
 
 app.get('/api/sr/state', (req, res) => {
