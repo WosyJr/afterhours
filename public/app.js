@@ -350,3 +350,88 @@
     if (u) { e.preventDefault(); return post('/api/radio/unrequest', u.dataset.unqueue, u, 'Pulled.'); }
   });
 })();
+
+(function () {
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-addlink]');
+    if (!b) return;
+    e.preventDefault();
+    var box = b.closest('.addlink');
+    var inp = box && box.querySelector('input[type=url]');
+    var note = document.querySelector('[data-qnote]');
+    if (!inp || !inp.value.trim()) return;
+    function say(m, bad) {
+      if (!note) return;
+      note.hidden = false;
+      note.textContent = m;
+      note.style.color = bad ? 'var(--rose)' : 'var(--lime)';
+    }
+    var was = b.textContent;
+    b.disabled = true;
+    b.textContent = 'Fetching…';
+    say('Fetching that file…');
+    fetch('/api/radio/link', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: inp.value.trim() })
+    }).then(function (r) { return r.json().catch(function () { return {}; }); })
+      .then(function (j) {
+        b.disabled = false;
+        b.textContent = was;
+        if (j && j.ok) {
+          say('Added ' + j.name + '.');
+          inp.value = '';
+          setTimeout(function () { location.reload(); }, 900);
+        } else {
+          say((j && j.error) || 'That did not work.', true);
+        }
+      }).catch(function () {
+        b.disabled = false;
+        b.textContent = was;
+        say('That did not reach the server.', true);
+      });
+  });
+})();
+
+(function () {
+  function note(m, bad) {
+    var n = document.querySelector('[data-srnote]');
+    if (!n) return;
+    n.hidden = false;
+    n.textContent = m;
+    n.style.color = bad ? 'var(--rose)' : 'var(--lime)';
+  }
+  document.addEventListener('click', function (e) {
+    var add = e.target.closest('[data-sradd]');
+    if (add) {
+      e.preventDefault();
+      var inp = document.getElementById('srlink');
+      if (!inp || !inp.value.trim()) return;
+      var was = add.textContent;
+      add.disabled = true; add.textContent = 'Checking…';
+      fetch('/api/sr/add', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: inp.value.trim() })
+      }).then(function (r) { return r.json().catch(function () { return {}; }); })
+        .then(function (j) {
+          add.disabled = false; add.textContent = was;
+          if (j && j.ok) { note('Queued ' + j.title); inp.value = ''; setTimeout(function () { location.reload(); }, 900); }
+          else note((j && j.error) || 'That did not work.', true);
+        }).catch(function () { add.disabled = false; add.textContent = was; note('No answer from the server.', true); });
+      return;
+    }
+    var pull = e.target.closest('[data-srpull]');
+    if (pull) {
+      e.preventDefault();
+      pull.disabled = true;
+      fetch('/api/sr/remove', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: pull.dataset.srpull })
+      }).then(function (r) { return r.json().catch(function () { return {}; }); })
+        .then(function (j) {
+          pull.disabled = false;
+          if (j && j.ok) location.reload(); else note((j && j.error) || 'Could not pull that.', true);
+        }).catch(function () { pull.disabled = false; });
+    }
+  });
+})();

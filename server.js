@@ -514,6 +514,58 @@ function overlayKey(req, res) {
   return false;
 }
 
+app.get('/sr', (req, res) => {
+  if (String(req.query.k || '') !== Overlay.token()) return res.status(403).type('text/plain').send('Wrong key.');
+  res.setHeader('Cache-Control', 'no-store');
+  res.type('html').send(Overlay.srPage({ key: req.query.k, compact: req.query.compact }));
+});
+
+app.get('/api/sr/state', (req, res) => {
+  if (!overlayKey(req, res)) return;
+  res.setHeader('Cache-Control', 'no-store');
+  res.json(require('./lib/sreq').status());
+});
+
+app.post('/api/sr/advance', (req, res) => {
+  if (!overlayKey(req, res)) return;
+  res.json({ ok: true, track: require('./lib/sreq').advance() });
+});
+
+app.post('/api/sr/beat', (req, res) => {
+  if (!overlayKey(req, res)) return;
+  require('./lib/sreq').beat(req.body || {});
+  res.json({ ok: true });
+});
+
+app.post('/api/sr/add', need('view'), async (req, res) => {
+  const SR = require('./lib/sreq');
+  const out = await SR.add(req.body && req.body.url, { id: req.ctx.me.id, name: req.ctx.me.name });
+  if (out.error) return res.status(400).json({ ok: false, error: out.error });
+  res.json({ ok: true, at: out.at, title: out.track.title });
+});
+
+app.post('/api/sr/remove', need('view'), (req, res) => {
+  const SR = require('./lib/sreq');
+  const force = !!(req.ctx.perms && req.ctx.perms.settings);
+  const out = SR.remove(String((req.body && req.body.id) || ''), req.ctx.me, force);
+  if (out.error) return res.status(400).json({ ok: false, error: out.error });
+  res.json({ ok: true });
+});
+
+app.post('/api/sr/skip', need('settings'), (req, res) => {
+  res.json({ ok: true, track: require('./lib/sreq').skip() });
+});
+
+app.post('/settings/sr/toggle', need('settings'), (req, res) => {
+  require('./lib/sreq').setOn(req.body.on === 'on' || req.body.on === '1');
+  res.redirect('/settings/site#srcard');
+});
+
+app.post('/settings/sr/clear', need('settings'), (req, res) => {
+  require('./lib/sreq').clear();
+  res.redirect('/settings/site#srcard');
+});
+
 app.get('/player', (req, res) => {
   if (String(req.query.k || '') !== Overlay.token()) return res.status(403).type('text/plain').send('Wrong key.');
   res.setHeader('Cache-Control', 'no-store');
@@ -1084,6 +1136,22 @@ app.post('/api/radio/unrequest', need('view'), (req, res) => {
   const out = Radio.unrequest(String((req.body && req.body.id) || ''), req.ctx.me, force);
   if (out.error) return res.status(400).json({ ok: false, error: out.error });
   res.json({ ok: true });
+});
+
+app.post('/api/radio/link', need('view'), async (req, res) => {
+  const FT = require('./lib/fetchtrack');
+  const wantSafe = req.body && req.body.deck === 'safe';
+  if (wantSafe && !(req.ctx.perms && req.ctx.perms.settings)) {
+    return res.status(403).json({ ok: false,
+      error: 'Only settings can add to the stream safe deck. Yours goes on the crew deck.' });
+  }
+  const out = await FT.grab(req.body && req.body.url, { id: req.ctx.me.id, name: req.ctx.me.name }, {
+    deck: wantSafe ? 'safe' : 'crew',
+    name: req.body && req.body.name,
+    artist: req.body && req.body.artist
+  });
+  if (out.error) return res.status(400).json({ ok: false, error: out.error });
+  res.json({ ok: true, id: out.track.id, name: out.track.name, deck: out.track.deck });
 });
 
 app.get('/api/radio/now', need('view'), (req, res) => {

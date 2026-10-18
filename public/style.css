@@ -996,3 +996,14 @@ label.btn.pick.busy { opacity:.65; pointer-events:none; }
 .ovlh{font-size:11px;letter-spacing:.09em;text-transform:uppercase;font-weight:800;
   color:var(--iris2);margin:4px 0 0}
 .ovl > .btn{justify-self:start}
+.addlink{margin-top:14px;padding-top:13px;border-top:1px solid var(--line)}
+.linkrow2{display:flex;gap:7px;flex-wrap:wrap}
+.linkrow2 input{flex:1;min-width:180px;background:var(--surf);border:1px solid var(--line);
+  color:var(--txt);border-radius:10px;padding:9px 12px;font-size:13.5px;font-family:inherit}
+.linkrow2 input:focus{outline:none;border-color:var(--iris)}
+.feats2{display:flex;flex-wrap:wrap;gap:6px}
+.fchip{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;
+  padding:6px 11px;border-radius:9px;background:var(--surf);border:1px solid var(--line);color:var(--faint)}
+.fchip i{width:7px;height:7px;border-radius:50%;background:var(--rose);flex:none}
+.fchip.on{color:var(--dim)}
+.fchip.on i{background:var(--lime)}
