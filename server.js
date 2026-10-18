@@ -569,7 +569,7 @@ app.post('/settings/sr/clear', need('settings'), (req, res) => {
 app.get('/player', (req, res) => {
   if (String(req.query.k || '') !== Overlay.token()) return res.status(403).type('text/plain').send('Wrong key.');
   res.setHeader('Cache-Control', 'no-store');
-  res.type('html').send(Overlay.playerPage({ key: req.query.k, deck: req.query.deck, controls: req.query.controls }));
+  res.type('html').send(Overlay.playerPage({ key: req.query.k, deck: req.query.deck, bare: req.query.bare }));
 });
 
 app.get('/api/radio/next', (req, res) => {

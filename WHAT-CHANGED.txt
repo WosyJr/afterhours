@@ -1,0 +1,365 @@
+AFTERHOURS UPDATE  (v3 - supersedes v2)
+
+Drop over your repo keeping folder structure, then deploy.
+
+lib/featart.js   NEW - the three live feature cards
+lib/gateway.js   connected-state fix + role colour flag
+lib/discord.js   role colour flag
+lib/pages.js     presence filter, custom status, live cards, crew page
+lib/uploads.js   multi-image slots with rotation
+lib/views.js     "+ Add" button and slot counter
+public/style.css styling for all of it
+public/app.js    add-vs-replace upload, calendar arrows
+server.js        upload route accepts the add flag
+
+NEW IN v3 (crew page)
+  - Every Discord role now shows, not just the top one, highest first.
+  - If the top role has no colour set, the card borrows the colour of the
+    highest role below it that does have one. If none do, it stays grey.
+    Uncoloured role pills take that same borrowed colour so the card reads
+    as one piece.
+  - The big empty gap is gone. Cards used to stretch to match the tallest
+    in the row; now each sizes to its own content.
+  - Avatars are round instead of squared off.
+  - The panel behind the avatar is per-member and uploadable - hover it and
+    hit Replace. Yours, or anyone's if your rank can edit members.
+
+IN v2
+  Uploading a picture no longer hides the live card. The live content always
+  renders and the uploaded picture sits behind it, dimmed, as a backdrop.
+
+EVERYTHING ELSE
+1. Gateway no longer says "Not connected" while it is working. Discord only
+   sends READY on a fresh login; after a reconnect it sends RESUMED, which
+   nothing handled. Now handled and cross-checked against the live socket.
+2. "Right now" hides offline people. Streamers still show.
+3. Custom statuses read out - the text lives in a.state, not a.name.
+4. Image slots hold up to 8 pictures and rotate every page load.
+   Replace = clear and set one.   + Add = add to the rotation.
+5. Feature cards are live: real Steam capsules, real avatars, real calendar.
+   IF A CARD LOOKS EMPTY it has no data yet:
+     Shared library  needs someone to connect Steam and sync. Profile and
+                     Game Details both public.
+     Looking to play needs the gateway connected - item 1, deploy first.
+     Nights          needs nights proposed on the Play tab.
+
+=== LATER ADDITIONS ===
+
+TTS / RADIO HANGING ON "thinking..."
+  Two real bugs found while tracing it:
+  a) lib/commands.js dispatched every command as `return doThing(inter)`
+     inside a try/catch. A returned promise is not awaited there, so a
+     rejection skipped the catch entirely and nothing ever replied.
+     Now `return await` on every branch.
+  b) lib/discord.js interactionEdit silently returned false when it had
+     no application id. Deferring works without one, editing does not -
+     which is exactly "thinking forever". It now logs loudly.
+     CHECK DISCORD_CLIENT_ID IS SET IN RAILWAY. If it is missing that is
+     very likely your whole problem.
+  c) A watchdog in lib/staff.js force-answers after 50 seconds with the
+     voice stage actually reached, so a command can never hang silently
+     again. Run /tts after deploying and send me what it says.
+
+RAID LIST            lib/raid.js
+  On the Live page. Everyone in the crew live on Twitch, smallest stream
+  first, top one highlighted. Viewers, uptime, a button that copies
+  "/raid handle", and a link. Excludes you and excludes YouTube.
+
+TWITCH CLIPS         lib/twitchclips.js
+  New Clips > Twitch tab. Pulls clips from every linked Twitch channel
+  every 15 minutes, last 14 days, deduped, newest first, 120 kept.
+  Needs TWITCH_CLIENT_ID and TWITCH_CLIENT_SECRET - the same ones the
+  live check already uses. Says so plainly if they are missing.
+
+GO LIVE -> NIGHT     lib/golive.js
+  Going live now posts a session on the home page automatically, named
+  after the game you are streaming, so people can join in one click.
+  When the stream ends: if nobody joined it is removed, if somebody did
+  it stays and is relabelled "Stream ended".
+  Turn it off by setting goLiveNight to false in config.
+
+STREAM STATS         lib/streamstats.js
+  Every stream is logged when it ends - duration, peak viewers, game.
+  Shown on the crew card under the rank, next to the voice stats.
+  Streams shorter than 2 minutes are ignored.
+
+TWO RADIO DECKS      lib/radio.js
+  Settings > Site > The radio now has two tabs.
+    Crew        Discord voice only. Anything goes.
+    Stream safe Licensed tracks only. Safe to broadcast.
+  Tracks belong to one deck, uploads go into whichever tab you are on,
+  and only one deck is on air at a time - so you cannot grab the wrong
+  library mid-stream. Requests are refused for tracks on the other deck.
+
+NOW PLAYING OVERLAY  /overlay/now?k=<key>
+  Same key as the existing overlay. Transparent background, shows track,
+  artist and which deck is on air, fades between tracks, polls every 4s.
+  Options: &align=left|center|right  &scale=1.4
+  Add a Browser source in OBS at about 520x120.
+
+REQUEST QUEUE        on the home page
+  Anyone with view access can queue a track from the deck that is on
+  air. Three per person at a time, no duplicates, and the queue plays
+  before the shuffle. People can pull their own; settings can pull any.
+
+FIX: the overlay link and the request queue were not findable
+  The now-playing overlay route existed but its URL was never printed
+  anywhere in the UI, so there was no way to find it. Settings > Site >
+  Stream overlay now lists BOTH links, numbered, each with a Copy button.
+  The request queue card also used to disappear completely when the deck
+  on air had no tracks in it. It now stays put and says what to do.
+
+WEB PLAYER - music without the bot   lib/webradio.js, /player?k=<key>
+  The bot is no longer in the path for stream music. Open /player, press
+  Play, and the music runs in that page.
+    - Requests made on the site play FIRST, then it shuffles the deck.
+    - Pick which deck it plays from in the page itself.
+    - Never repeats the track it just played.
+    - Leave the tab open, or add it as an OBS browser source with
+      "Control audio via OBS" ticked so OBS captures the sound.
+  The now-playing overlay FOLLOWS THE PLAYER whenever the player is
+  running, and falls back to the Discord bot when it is not. It knows
+  the difference by a heartbeat - 25 seconds without one and it reverts.
+  Link is in Settings > Site > Stream overlay, section 3.
+
+  Requests now accept a track if it is on EITHER deck that is currently
+  playing - the bot's or the player's - instead of only the bot's.
+
+FIX: go-live sometimes did not ping the role
+  embeds.js pingFor() refused to ping unless the role was present in the
+  gateway's in-memory role cache. That cache only fills on GUILD_CREATE.
+  On a fresh boot the stream check runs immediately, before guild data
+  has arrived, so the lookup failed and the announcement posted with no
+  ping at all. Intermittent by nature - it depended on timing.
+  Now the existence check only applies when the cache is actually
+  populated. A role you really deleted is still skipped.
+
+FIX: restarting re-announced everyone already streaming
+  state.live starts empty, so the first check treated every live stream
+  as brand new and announced it. That is why an announcement could say
+  "just went live" next to "Live since an hour ago".
+  The first check after boot now SEEDS state instead of announcing. It
+  still records the stream for stats, it just does not shout about it.
+  Anyone who goes live after that announces normally.
+
+PLAYER MADE MINIMAL  /player?k=<key>
+  Stripped to one bar: track, artist, elapsed / total, and a thin
+  progress line. Heading, description and the paragraph of hints are
+  gone. Controls are a single compact row underneath.
+  Add &bare=1 to hide the controls entirely, leaving just the now
+  playing bar on a transparent background - that is the one to put in
+  OBS if you want the player itself on screen.
+
+  The now-playing OVERLAY also shows elapsed / total and a progress
+  line now. The player reports its position in the heartbeat every 5
+  seconds, so the overlay follows along without a second audio source.
+
+PUBLIC JOIN PAGE     lib/joinpage.js  ->  /join
+  A page anyone can open with no sign-in, for your Twitch panel to
+  point at. Shows how many are online, in voice and streaming, the
+  faces of whoever is around with a green ring on anyone in voice,
+  what is being streamed, what sessions are running, the next night,
+  and a Discord button.
+
+  Honest when it is quiet: no online pill at all, and a line saying it
+  picks up in the evenings - rather than an empty page that looks dead.
+  If no invite is configured it says so instead of showing a dead button.
+
+  PRIVACY
+    It is noindex/nofollow in the meta AND the X-Robots-Tag header, so
+    search engines will not archive it.
+    Only people who are ONLINE are shown, up to 12, first name only.
+    Offline members never appear and no usernames or ids are exposed.
+    Set joinNames to false in config to drop the faces entirely and
+    show only counts.
+    Set joinBlurb in config to change the description.
+
+  Point the Twitch panel's "Image Links To" field at
+  https://your-site/join
+
+FIX: the request queue was buried
+  It was rendering, but at the very bottom of the home page, underneath
+  all three full-width feature cards - so you had to scroll past the
+  hero and the three big panels to reach it.
+  It now sits ABOVE the feature cards, and also appears on
+  Clips > Live where the streaming context is.
+
+ADD A TRACK FROM A LINK   lib/fetchtrack.js
+  A field on the request card. Paste a link that points straight at an
+  audio file and the site fetches it and adds it to the deck.
+  Works with: mp3, ogg, oga, wav, flac, m4a, aac, opus, webm - which
+  covers the download links from StreamBeats, NCS and Pretzel.
+  Does not work with: a link to a PAGE about a song, or with YouTube,
+  Spotify, SoundCloud, Bandcamp, Apple Music, Deezer, Tidal, Mixcloud.
+  Those are refused with an explanation rather than failing silently.
+
+  TWO SAFEGUARDS
+  1. Anyone with view access can add to the CREW deck. Only settings
+     can add to STREAM SAFE. Otherwise one person pasting a chart song
+     would put your channel at risk, and the whole point of having two
+     decks would be gone.
+  2. The fetcher refuses private and loopback addresses - 127.x, 10.x,
+     192.168.x, 172.16-31.x, 169.254.x, IPv6 local - before and after
+     redirects, so the link box cannot be used to make your server
+     probe its own network. 20MB cap, 25 second timeout.
+
+SONG REQUESTS - the Nightbot way   lib/sreq.js  ->  /sr?k=<key>
+  Viewers paste a YouTube link on the site, it queues, and it plays on
+  stream through YOUTUBE'S OWN EMBEDDED PLAYER. Nothing is downloaded,
+  the view counts for the artist, ads still serve. This is the same
+  mechanism Nightbot and StreamElements use, and it is why those tools
+  are allowed to exist while Groovy was shut down.
+
+  SETUP
+    Add /sr?k=<key> as a browser source in OBS and press "Start
+    requests" once - browsers will not autoplay audio until something
+    is clicked. Full size shows the video. &compact=1 shrinks it to a
+    corner with just a title bar.
+    The link is in Settings > Site > Stream overlay, section 4.
+
+  ON THE SITE
+    A "Song requests" card on the home page: what is playing, the
+    queue with who asked for each, and a paste box.
+    3 per person, 40 in the queue, no duplicates.
+    People can pull their own; settings can pull anything, skip, clear
+    the queue, or close requests entirely.
+    Accepts every YouTube URL shape - watch?v=, youtu.be, /shorts/,
+    /embed/, /live/, music.youtube.com, m.youtube.com, or a bare id.
+    Titles come from YouTube's public oEmbed endpoint, no API key.
+
+  THIS DOES NOT MAKE THE MUSIC SAFE FOR YOUR VODS. It is the same
+  copyright exposure every song request bot carries. Live only, and
+  your call. The Stream safe deck is still the safe option.
+
+WHAT THIS BUILD HAS   lib/build.js
+  A new panel at the top of Settings > Site. It lists the newer
+  features and whether each one's file is actually present on the
+  running server, with the build time.
+  Green = present. Red = that file never made it up, and the card
+  says plainly that the deploy did not take.
+  Check this FIRST when something is "missing" from the site. It will
+  tell you in one glance whether you are looking at a bug or an old
+  deploy.
+
+TRANSPARENT OVERLAYS - no panel, no wasted space
+  The dark pill behind the text is gone in these modes. Just the text
+  with a heavy shadow so it stays readable over any footage, a thin
+  glowing progress line, and the equaliser bars.
+
+    /overlay/now?k=<key>&plain=1        now playing, no panel
+    /player?k=<key>&bare=1              player, no controls, no panel
+    /sr?k=<key>&compact=1&plain=1       song requests, small + no panel
+
+  Drop &plain=1 or &bare=1 to get the panel back if it ever sits on a
+  bright part of the screen and the shadow is not enough.
+
+  ALSO FIXED: the title and artist were rendering on the SAME LINE in
+  the now-playing overlay - they were inline spans with no display
+  block. They stack properly now, and the artist line hides itself
+  when a track has no artist set.
+
+SONG REQUESTS ONLY SHOW WHEN SOMEONE IS LIVE
+  The card is hidden from everyone else unless a crew member is
+  actually streaming, or something is already playing.
+  You still see it whenever you have settings access, with a line
+  saying it is hidden from everyone else right now.
+  Set srAlways to true in config to leave it visible all the time.
+
+IT STARTS ON ITS OWN NOW
+  The /sr page used to need a click before anything played, which is
+  awkward inside OBS. It now tries to autoplay as soon as the YouTube
+  player is ready, and only shows a "Click once to start audio" button
+  if the browser actually blocked it. OBS usually will not.
+  If it does block: right-click the source > Interact, click once,
+  close the window. It keeps going by itself after that.
+
+=============================================================
+TTS AND RADIO - THE ACTUAL CAUSE, FOUND
+=============================================================
+Close code 4017 means "end to end encryption required". Discord now
+enforces E2EE on voice calls (the DAVE protocol).
+
+@discordjs/voice asks the @snazzah/davey package which DAVE version it
+supports. With davey MISSING that returns null, so the bot's identify
+says max_dave_protocol_version: 0 - "I do not support encryption" -
+and Discord hangs up at once. That is exactly your trace: it reached
+"identifying" and closed with 4017.
+
+FIXED IN THIS ZIP - package.json now has
+    "@snazzah/davey": "^0.1.12"
+    "@discordjs/voice": "^0.19.2"   (was 0.18.0)
+Deploy and Railway installs it on build. Nothing else to do.
+Verified here: with davey present DAVE_PROTOCOL_VERSION reads 1, so
+identify advertises 1 instead of 0.
+
+My earlier guess that it was blocked UDP was WRONG. The 4017 message
+now says all of the above in the Discord reply.
+
+TRANSPARENT BY DEFAULT - no flags to remember
+  /overlay/now?k=<key>     transparent, no panel
+  /player?k=<key>          transparent, no controls
+  /sr?k=<key>              transparent
+  Opt back in if you ever want them:
+    &panel=1      dark box behind the text
+    &controls=1   play/skip/volume on the player
+
+STREAM SAFE BADGE REMOVED from the now playing overlay. It was green
+clutter on screen and your viewers do not need to know which deck it
+came from.
+
+SONG REQUEST LIMITS RAISED
+  Per person 3 -> 10.  Queue 40 -> 80.
+  Tune without a deploy:  srPerPerson (0 = unlimited, max 100)
+                          srMaxQueue  (max 300)
+
+REAL SOUND BAR ON THE PLAYER
+  The three bars used to be a fake CSS animation that moved whether or
+  not anything was playing. They are now seven bars driven by the
+  actual audio through a Web Audio analyser, so they move with the
+  music and sit flat when it stops.
+
+"NOT UPDATING" IN OBS - FIXED
+  You had /player open in a tab AND as a browser source. They were two
+  separate players, and the OBS one had never been started, so it just
+  said "Nothing playing" forever.
+  Any copy that is not the one playing now FOLLOWS the one that is. It
+  shows the same track, artist, time and progress, with no audio of its
+  own, and polls every 2 seconds. Its button reads "Take over" instead
+  of "Play" - press that only if you want the sound to move to it.
+  So: put it in your scene, drive it from a tab, never get two songs
+  playing over each other.
+
+ALSO FIXED: the title and the "added by" line were printing on the SAME
+  line on the player - same inline-span bug as the overlay had. They
+  stack properly now.
+
+PLAYER BAR NO LONGER A LONG EMPTY STRIP
+  Two changes:
+  1. It hides COMPLETELY when nothing is playing, in the OBS mode.
+     Before it sat there saying "Nothing playing" on your stream,
+     which nobody watching needs to see. It reappears on its own the
+     moment a track starts.
+  2. The bar now takes only the width its text needs instead of
+     stretching. Measured: 249px of 900 available with a short title.
+
+  Size the OBS source about 480x90. Anything bigger is empty space you
+  have to position around.
+  The version with &controls=1 still always shows, so you can see it
+  in a tab to press Play.
+
+FIX: I broke the player in a normal browser tab
+  I had made transparent-and-no-controls the DEFAULT, which meant
+  opening /player in a tab gave you a white page with no Play button.
+  That was wrong. Reverted:
+
+    /player?k=<key>           dark background, controls, always visible
+                              -> open this in a TAB to press Play
+    /player?k=<key>&bare=1    transparent, no buttons, hides when idle
+                              -> put THIS one in OBS
+
+  Settings > Site > Stream overlay now prints BOTH links with the
+  &bare=1 already on the OBS one, each with its own copy button, so
+  there is nothing to remember or type.
+
+  If your OBS source still says "Nothing playing", its URL is missing
+  &bare=1. That flag is what hides it when idle.
