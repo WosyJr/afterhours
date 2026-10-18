@@ -911,10 +911,11 @@ function slotAllowed(ctx, slot) {
   return ctx.perms.images ? '' : 'Your rank cannot change site pictures';
 }
 
-function land(ctx, slot, buf, ct) {
+function land(ctx, slot, buf, ct, add) {
   const out = U.save(slot, buf, ct);
   if (out.error) return out;
   if (/^banner-/.test(slot)) U.setBanner(slot.slice(7), out);
+  else if (add) U.addSiteImage(slot, out);
   else U.setSiteImage(slot, out);
   return out;
 }
@@ -951,7 +952,7 @@ app.post('/api/upload/chunk', need('view'),
     U.dropPart(id);
     if (!buf) return res.status(500).json({ ok: false, error: 'The pieces did not come back together.' });
 
-    const out = land(req.ctx, slot, buf, ct);
+    const out = land(req.ctx, slot, buf, ct, req.query.add === '1');
     if (out.error) return res.status(400).json({ ok: false, error: out.error });
     console.log('[upload] ' + slot + ' finished, ' + buf.length + ' bytes, ' + out.kind);
     res.json({ ok: true, done: true, url: out.url, kind: out.kind });
@@ -968,9 +969,9 @@ app.post('/api/upload', need('view'),
     const no = slotAllowed(req.ctx, slot);
     if (no) return res.status(403).json({ ok: false, error: no });
 
-    const out = land(req.ctx, slot, req.body, ct);
+    const out = land(req.ctx, slot, req.body, ct, req.query.add === '1');
     if (out.error) return res.status(400).json({ ok: false, error: out.error });
-    res.json({ ok: true, url: out.url, kind: out.kind });
+    res.json({ ok: true, url: out.url, kind: out.kind, count: U.siteImages(slot).length });
   });
 
 app.post('/api/radio', need('settings'),

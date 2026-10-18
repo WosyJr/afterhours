@@ -107,6 +107,7 @@
       return;
     }
 
+    var adding = input.dataset.add === '1';
     var label = input.closest('.rep');
     var text = label && label.querySelector('[data-reptext]');
     var holder = input.closest('.photo');
@@ -161,7 +162,8 @@
             var piece = f.slice(from, Math.min(from + CHUNK, f.size));
             var q = '/api/upload/chunk?slot=' + encodeURIComponent(slot) +
               '&id=' + id + '&i=' + i + '&n=' + n +
-              '&size=' + f.size + '&ct=' + encodeURIComponent(f.type || '');
+              '&size=' + f.size + '&ct=' + encodeURIComponent(f.type || '') +
+              (adding ? '&add=1' : '');
             text.textContent = n === 1 ? 'Saving…' : Math.round((i / n) * 100) + '% of ' + mb(f.size);
 
             post(q, piece, 'application/octet-stream', 120000).then(function (r) {
@@ -263,5 +265,24 @@
       };
       xhr.send(f);
     })();
+  });
+})();
+
+(function () {
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-cal-prev],[data-cal-next]');
+    if (!b) return;
+    e.preventDefault();
+    var box = b.closest('[data-cal]');
+    if (!box) return;
+    var panels = Array.prototype.slice.call(box.querySelectorAll('.cpanel'));
+    var names = Array.prototype.slice.call(box.querySelectorAll('.cmn'));
+    if (!panels.length) return;
+    var at = 0;
+    for (var k = 0; k < panels.length; k++) { if (!panels[k].hidden) { at = k; break; } }
+    var to = at + (b.hasAttribute('data-cal-next') ? 1 : -1);
+    if (to < 0 || to >= panels.length) return;
+    panels.forEach(function (p, i) { p.hidden = i !== to; });
+    names.forEach(function (n, i) { n.hidden = i !== to; });
   });
 })();
