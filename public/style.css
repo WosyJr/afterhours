@@ -993,3 +993,6 @@ label.btn.pick.busy { opacity:.65; pointer-events:none; }
 .qt{flex:1;min-width:0;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .qpick{display:flex;gap:6px;flex-wrap:wrap;max-height:184px;overflow-y:auto}
 .qpick .btn{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ovlh{font-size:11px;letter-spacing:.09em;text-transform:uppercase;font-weight:800;
+  color:var(--iris2);margin:4px 0 0}
+.ovl > .btn{justify-self:start}
