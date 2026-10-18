@@ -363,3 +363,26 @@ FIX: I broke the player in a normal browser tab
 
   If your OBS source still says "Nothing playing", its URL is missing
   &bare=1. That flag is what hides it when idle.
+
+YOUTUBE PLAYLISTS - plays through on its own
+  Paste a playlist link on the site and it becomes the background
+  rotation. YouTube's own player walks through it song by song and it
+  loops at the end. No API key needed - the player does the advancing.
+
+  HOW IT BEHAVES
+    Queue empty      -> the playlist plays
+    Someone requests -> the request jumps in front
+    Queue empties    -> the playlist picks up again
+    Playlist ends    -> it starts over
+
+  The track title updates as it moves through, read from the player.
+
+  WHICH LINKS WORK
+    youtube.com/playlist?list=PL...        yes
+    music.youtube.com/playlist?list=OLAK5uy_...  yes, YT Music albums
+    youtube.com/watch?v=X&list=PL...       adds the SINGLE SONG
+    Watch Later / Liked                    refused, they are private
+                                           and cannot be embedded
+
+  The card shows which playlist is on rotation, and settings can
+  remove it with one button.

@@ -1007,3 +1007,9 @@ label.btn.pick.busy { opacity:.65; pointer-events:none; }
 .fchip i{width:7px;height:7px;border-radius:50%;background:var(--rose);flex:none}
 .fchip.on{color:var(--dim)}
 .fchip.on i{background:var(--lime)}
+.plrow{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  background:rgba(124,92,255,.1);border:1px solid rgba(124,92,255,.32);
+  border-radius:11px;padding:10px 13px;margin:0 0 12px;min-width:0}
+.plname{display:flex;flex-direction:column;min-width:0}
+.plname b{font-size:13px}
+.plname span{font-size:12px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

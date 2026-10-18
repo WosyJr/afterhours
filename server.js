@@ -561,6 +561,17 @@ app.post('/settings/sr/toggle', need('settings'), (req, res) => {
   res.redirect('/settings/site#srcard');
 });
 
+app.post('/settings/sr/playlist', need('settings'), async (req, res) => {
+  const SR = require('./lib/sreq');
+  if (req.body.clear) { SR.setFallback(null); return res.redirect('/settings/site#srcard'); }
+  const id = SR.parseList(req.body.url || '');
+  if (id) {
+    const name = await SR.lookupList(id);
+    SR.setFallback(id, name || '');
+  }
+  res.redirect('/settings/site#srcard');
+});
+
 app.post('/settings/sr/clear', need('settings'), (req, res) => {
   require('./lib/sreq').clear();
   res.redirect('/settings/site#srcard');
