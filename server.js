@@ -641,6 +641,12 @@ app.post('/apply', (req, res) => {
   res.redirect('/apply');
 });
 
+app.get('/join', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+  res.type('html').send(require('./lib/joinpage').page());
+});
+
 app.get('/pass/:code', (req, res) => {
   const ctx = ctxFor(req);
   const g = Guests.get(String(req.params.code || ''));
