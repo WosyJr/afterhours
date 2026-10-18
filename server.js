@@ -495,8 +495,60 @@ app.get('/overlay/now', (req, res) => {
 app.get('/overlay/now.json', (req, res) => {
   if (String(req.query.k || '') !== Overlay.token()) return res.status(403).json({ error: 'Wrong key.' });
   res.setHeader('Cache-Control', 'no-store');
+  const W = require('./lib/webradio');
+  if (W.live()) {
+    const w = W.status();
+    return res.json({
+      on: !!(w.track && !w.paused), track: w.track, deck: w.deck,
+      deckName: Radio.DECKS[w.deck].name, source: 'player', at: Date.now()
+    });
+  }
   const st = Radio.status();
-  res.json({ on: st.on, track: st.track, deck: st.deck, deckName: st.deckName, at: Date.now() });
+  res.json({ on: st.on, track: st.track, deck: st.deck, deckName: st.deckName, source: 'bot', at: Date.now() });
+});
+
+function overlayKey(req, res) {
+  if (String(req.query.k || '') === Overlay.token()) return true;
+  res.status(403).json({ error: 'Wrong key.' });
+  return false;
+}
+
+app.get('/player', (req, res) => {
+  if (String(req.query.k || '') !== Overlay.token()) return res.status(403).type('text/plain').send('Wrong key.');
+  res.setHeader('Cache-Control', 'no-store');
+  res.type('html').send(Overlay.playerPage({ key: req.query.k, deck: req.query.deck }));
+});
+
+app.get('/api/radio/next', (req, res) => {
+  if (!overlayKey(req, res)) return;
+  const W = require('./lib/webradio');
+  if (req.query.deck) W.setDeck(String(req.query.deck));
+  W.beat({ deck: req.query.deck });
+  const out = W.nextTrack();
+  res.setHeader('Cache-Control', 'no-store');
+  if (!out) return res.json({ track: null });
+  res.json(out);
+});
+
+app.post('/api/radio/playing', (req, res) => {
+  if (!overlayKey(req, res)) return;
+  const W = require('./lib/webradio');
+  if (req.body && req.body.stop) { W.stop(); return res.json({ ok: true, stopped: true }); }
+  const t = W.setPlaying(String((req.body && req.body.id) || ''));
+  if (req.body && req.body.deck) W.setDeck(req.body.deck);
+  res.json({ ok: true, track: t });
+});
+
+app.post('/api/radio/beat', (req, res) => {
+  if (!overlayKey(req, res)) return;
+  const W = require('./lib/webradio');
+  res.json({ ok: true, live: W.beat(req.body || {}) });
+});
+
+app.get('/api/radio/state', (req, res) => {
+  if (!overlayKey(req, res)) return;
+  res.setHeader('Cache-Control', 'no-store');
+  res.json(require('./lib/webradio').status());
 });
 
 app.post('/settings/overlay/rotate', need('settings'), (req, res) => {
