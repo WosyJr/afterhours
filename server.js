@@ -500,7 +500,8 @@ app.get('/overlay/now.json', (req, res) => {
     const w = W.status();
     return res.json({
       on: !!(w.track && !w.paused), track: w.track, deck: w.deck,
-      deckName: Radio.DECKS[w.deck].name, source: 'player', at: Date.now()
+      deckName: Radio.DECKS[w.deck].name, source: 'player',
+      pos: w.pos, len: w.len, at: Date.now()
     });
   }
   const st = Radio.status();
@@ -516,7 +517,7 @@ function overlayKey(req, res) {
 app.get('/player', (req, res) => {
   if (String(req.query.k || '') !== Overlay.token()) return res.status(403).type('text/plain').send('Wrong key.');
   res.setHeader('Cache-Control', 'no-store');
-  res.type('html').send(Overlay.playerPage({ key: req.query.k, deck: req.query.deck }));
+  res.type('html').send(Overlay.playerPage({ key: req.query.k, deck: req.query.deck, bare: req.query.bare }));
 });
 
 app.get('/api/radio/next', (req, res) => {
