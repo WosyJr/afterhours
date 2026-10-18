@@ -484,6 +484,21 @@ app.get('/overlay.json', (req, res) => {
   res.json(Overlay.data());
 });
 
+app.get('/overlay/now', (req, res) => {
+  if (String(req.query.k || '') !== Overlay.token()) return res.status(403).type('text/plain').send('Wrong key.');
+  res.setHeader('Cache-Control', 'no-store');
+  res.type('html').send(Overlay.nowPage({
+    key: req.query.k, align: req.query.align, scale: req.query.scale
+  }));
+});
+
+app.get('/overlay/now.json', (req, res) => {
+  if (String(req.query.k || '') !== Overlay.token()) return res.status(403).json({ error: 'Wrong key.' });
+  res.setHeader('Cache-Control', 'no-store');
+  const st = Radio.status();
+  res.json({ on: st.on, track: st.track, deck: st.deck, deckName: st.deckName, at: Date.now() });
+});
+
 app.post('/settings/overlay/rotate', need('settings'), (req, res) => {
   Overlay.rotate();
   res.redirect('/settings/site?overlay=1');
@@ -984,15 +999,47 @@ app.post('/api/radio', need('settings'),
     const out = U.saveBlob(req.body, ct, 'radio');
     if (out.error) return res.status(400).json({ ok: false, error: out.error });
     const row = Radio.add(
-      { name: String(req.query.name || 'Untitled').slice(0, 80), url: out.url },
+      {
+        name: String(req.query.name || 'Untitled').slice(0, 80),
+        artist: String(req.query.artist || '').slice(0, 80),
+        deck: req.query.deck === 'safe' ? 'safe' : 'crew',
+        url: out.url
+      },
       { id: req.ctx.me.id, name: req.ctx.me.name }
     );
-    res.json({ ok: true, id: row.id, name: row.name });
+    res.json({ ok: true, id: row.id, name: row.name, deck: row.deck });
   });
+
+app.post('/api/radio/deck', need('settings'), (req, res) => {
+  res.json({ ok: true, deck: Radio.setDeck(req.body && req.body.deck) });
+});
+
+app.post('/api/radio/request', need('view'), (req, res) => {
+  const out = Radio.request(String((req.body && req.body.id) || ''), req.ctx.me);
+  if (out.error) return res.status(400).json({ ok: false, error: out.error });
+  res.json({ ok: true, at: out.at });
+});
+
+app.post('/api/radio/unrequest', need('view'), (req, res) => {
+  const force = !!(req.ctx.perms && req.ctx.perms.settings);
+  const out = Radio.unrequest(String((req.body && req.body.id) || ''), req.ctx.me, force);
+  if (out.error) return res.status(400).json({ ok: false, error: out.error });
+  res.json({ ok: true });
+});
+
+app.get('/api/radio/now', need('view'), (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.json(Radio.status());
+});
 
 app.post('/settings/radio/remove', need('settings'), (req, res) => {
   Radio.remove(String(req.body.id || ''));
   res.redirect('/settings/site?radio=1');
+});
+
+app.post('/settings/radio/deck', need('settings'), (req, res) => {
+  const d = Radio.setDeck(String(req.body.deck || ''));
+  res.redirect('/settings/site?deck=' + d + '#radiocard');
 });
 
 app.get('/api/live', (req, res) => {
@@ -1073,6 +1120,7 @@ if (require.main === module) {
     console.log('[afterhours] Discord redirect must be exactly ' + Site.siteUrl() + '/auth/callback');
     G.connect();
     St.start();
+    require('./lib/twitchclips').start();
     Stats.start();
     Ach.start();
     Steam.start();

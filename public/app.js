@@ -250,7 +250,8 @@
       var f = files.shift();
       say('Uploading ' + f.name + (total > 1 ? ' (' + (done + failed.length + 1) + ' of ' + total + ')' : ''));
       var xhr = new XMLHttpRequest();
-      xhr.open('POST', '/api/radio?name=' + encodeURIComponent(f.name.replace(/\.[^.]+$/, '')));
+      xhr.open('POST', '/api/radio?name=' + encodeURIComponent(f.name.replace(/\.[^.]+$/, '')) +
+        '&deck=' + encodeURIComponent(inp.dataset.deck || 'crew'));
       xhr.setRequestHeader('Content-Type', f.type || 'audio/mpeg');
       xhr.onload = function () {
         var body = null;
@@ -284,5 +285,68 @@
     if (to < 0 || to >= panels.length) return;
     panels.forEach(function (p, i) { p.hidden = i !== to; });
     names.forEach(function (n, i) { n.hidden = i !== to; });
+  });
+})();
+
+(function () {
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-copy]');
+    if (!b) return;
+    e.preventDefault();
+    var txt = b.dataset.copy;
+    var was = b.textContent;
+    function done(ok) {
+      b.textContent = ok ? 'Copied' : 'Press Ctrl+C';
+      setTimeout(function () { b.textContent = was; }, 1600);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(function () { done(true); }, function () { fallback(); });
+    } else { fallback(); }
+    function fallback() {
+      var ta = document.createElement('textarea');
+      ta.value = txt;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      var ok = false;
+      try { ok = document.execCommand('copy'); } catch (err) { ok = false; }
+      document.body.removeChild(ta);
+      done(ok);
+    }
+  });
+})();
+
+(function () {
+  var note = null;
+  function say(m, bad) {
+    note = note || document.querySelector('[data-qnote]');
+    if (!note) return;
+    note.hidden = false;
+    note.textContent = m;
+    note.style.color = bad ? 'var(--rose)' : 'var(--lime)';
+    setTimeout(function () { if (note) note.hidden = true; }, 3200);
+  }
+  function post(url, id, btn, after) {
+    if (btn) btn.disabled = true;
+    fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: id })
+    }).then(function (r) { return r.json().catch(function () { return {}; }); })
+      .then(function (b) {
+        if (btn) btn.disabled = false;
+        if (b && b.ok) { say(after); setTimeout(function () { location.reload(); }, 700); }
+        else say((b && b.error) || 'That did not work.', true);
+      }).catch(function () {
+        if (btn) btn.disabled = false;
+        say('That did not reach the server.', true);
+      });
+  }
+  document.addEventListener('click', function (e) {
+    var q = e.target.closest('[data-queue]');
+    if (q) { e.preventDefault(); return post('/api/radio/request', q.dataset.queue, q, 'Queued.'); }
+    var u = e.target.closest('[data-unqueue]');
+    if (u) { e.preventDefault(); return post('/api/radio/unrequest', u.dataset.unqueue, u, 'Pulled.'); }
   });
 })();
