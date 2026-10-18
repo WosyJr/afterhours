@@ -910,9 +910,9 @@ label.btn.pick.busy { opacity:.65; pointer-events:none; }
 .yoursettings { margin-top:14px; }
 .yoursettings .pushbox { margin-top:0; border-top:0; padding-top:0; }
 
-.feat.livebg .photo > img.real, .feat.livebg .photo > video.vid { opacity:.3; filter:saturate(.75); }
+.feat.livebg .photo > img.real, .feat.livebg .photo > video.vid { opacity:.5; filter:saturate(.8); }
 .feat.livebg .photo::before { content:""; position:absolute; inset:0; z-index:1;
-  background:linear-gradient(180deg,rgba(9,9,15,.5),rgba(9,9,15,.72)); }
+  background:linear-gradient(180deg,rgba(9,9,15,.4),rgba(9,9,15,.64)); }
 
 .rlist { display:flex; flex-wrap:wrap; gap:4px; }
 .rlist .rpill { align-self:auto; max-width:100%; }
