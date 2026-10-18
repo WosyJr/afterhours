@@ -488,7 +488,7 @@ app.get('/overlay/now', (req, res) => {
   if (String(req.query.k || '') !== Overlay.token()) return res.status(403).type('text/plain').send('Wrong key.');
   res.setHeader('Cache-Control', 'no-store');
   res.type('html').send(Overlay.nowPage({
-    key: req.query.k, align: req.query.align, scale: req.query.scale, plain: req.query.plain
+    key: req.query.k, align: req.query.align, scale: req.query.scale, panel: req.query.panel
   }));
 });
 
@@ -517,7 +517,7 @@ function overlayKey(req, res) {
 app.get('/sr', (req, res) => {
   if (String(req.query.k || '') !== Overlay.token()) return res.status(403).type('text/plain').send('Wrong key.');
   res.setHeader('Cache-Control', 'no-store');
-  res.type('html').send(Overlay.srPage({ key: req.query.k, compact: req.query.compact, plain: req.query.plain }));
+  res.type('html').send(Overlay.srPage({ key: req.query.k, compact: req.query.compact, panel: req.query.panel }));
 });
 
 app.get('/api/sr/state', (req, res) => {
@@ -569,7 +569,7 @@ app.post('/settings/sr/clear', need('settings'), (req, res) => {
 app.get('/player', (req, res) => {
   if (String(req.query.k || '') !== Overlay.token()) return res.status(403).type('text/plain').send('Wrong key.');
   res.setHeader('Cache-Control', 'no-store');
-  res.type('html').send(Overlay.playerPage({ key: req.query.k, deck: req.query.deck, bare: req.query.bare }));
+  res.type('html').send(Overlay.playerPage({ key: req.query.k, deck: req.query.deck, controls: req.query.controls }));
 });
 
 app.get('/api/radio/next', (req, res) => {
