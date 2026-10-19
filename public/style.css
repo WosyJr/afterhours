@@ -1013,3 +1013,8 @@ label.btn.pick.busy { opacity:.65; pointer-events:none; }
 .plname{display:flex;flex-direction:column;min-width:0}
 .plname b{font-size:13px}
 .plname span{font-size:12px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.openplayer{display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.34);
+  border-radius:11px;padding:11px 14px;margin:0 0 12px}
+.openplayer span{flex:1;min-width:200px;font-size:13px;color:var(--dim);line-height:1.5}
+.openplayer b{color:var(--txt)}

@@ -1188,6 +1188,15 @@ app.post('/settings/radio/remove', need('settings'), (req, res) => {
   res.redirect('/settings/site?radio=1');
 });
 
+app.post('/settings/tts', need('settings'), (req, res) => {
+  require('./lib/tts').setVoice({
+    voice: req.body.voice,
+    wpm: req.body.wpm,
+    pitch: req.body.pitch
+  });
+  res.redirect('/settings/site?tts=1#ttscard');
+});
+
 app.post('/settings/radio/deck', need('settings'), (req, res) => {
   const d = Radio.setDeck(String(req.body.deck || ''));
   res.redirect('/settings/site?deck=' + d + '#radiocard');

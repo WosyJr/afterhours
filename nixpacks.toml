@@ -1,2 +1,2 @@
 [phases.setup]
-aptPkgs = ["...", "espeak-ng", "ffmpeg"]
+aptPkgs = ["...", "espeak-ng", "ffmpeg", "mbrola", "mbrola-us1", "mbrola-en1"]

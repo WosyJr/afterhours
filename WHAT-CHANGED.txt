@@ -416,3 +416,50 @@ THREE PLAYLIST BUGS FIXED
    YOUR LINK was music.youtube.com. If it still refuses after
    deploying, that is YouTube blocking that specific playlist, not the
    site. Make a normal playlist on youtube.com and use that link.
+
+THE TTS VOICE
+  The cause is espeak-ng itself. It is a formant synthesiser - it does
+  not use recordings of a person at all, it generates the sound from
+  scratch. That is why it is hard to follow. No amount of tuning makes
+  it sound human.
+
+  nixpacks.toml now installs mbrola plus two voices:
+      mbrola, mbrola-us1, mbrola-en1
+  mbrola stitches together recordings of a real speaker, so it is far
+  easier to understand. It costs nothing, needs no API key, and runs
+  on the same box. Deploy and it is there.
+
+  A VOICE PICKER in Settings > Site > The voice:
+    Natural, American      mb-us1   <- new default once mbrola is in
+    Natural, British       mb-en1
+    Robotic, American      en-us
+    Robotic, British       en-gb    <- what you had
+    Robotic, well spoken   en-gb-x-rp
+    Robotic, deeper        en-us+Alex
+    Robotic, female        en-us+f3
+  Plus speed and pitch. No redeploy needed to change any of it - the
+  natural ones are greyed out until mbrola is actually installed, and
+  the card says so.
+
+  Speed dropped from 165 to 150 words a minute. The old setting was
+  fast enough to hurt on its own.
+
+  The audio chain also got a highpass at 90Hz to cut rumble and
+  dynaudnorm to even out the volume, so quiet words stop disappearing
+  under game audio. Verified end to end: 3.2 seconds of clean 48k
+  stereo out of the pipeline.
+
+"THE PLAYER IS NOT CATCHING THE PLAYLIST" - there are TWO players
+  This one is on me. I built two pages with nearly the same name:
+
+    /player   plays AUDIO FILES you uploaded (the radio decks)
+    /sr       plays YOUTUBE - song requests and the playlist
+
+  The playlist will never play on /player. It is not that page's job.
+  You had /player open, which is why nothing happened.
+
+  The Song requests card now says plainly when the request player is
+  not running, explains that it is a different page from the radio
+  player, and has an "Open it" button that goes straight to /sr with
+  the key already on it. The settings panel says the same under
+  section 4.
