@@ -386,3 +386,33 @@ YOUTUBE PLAYLISTS - plays through on its own
 
   The card shows which playlist is on rotation, and settings can
   remove it with one button.
+
+THREE PLAYLIST BUGS FIXED
+
+1. "That did not work" on every playlist link
+   The add route did out.track.title, but a playlist response has no
+   .track - so it threw a TypeError, returned 500, and the site showed
+   the generic failure. The playlist WAS being saved; you just always
+   got told it failed. The route handles both shapes now, and the site
+   says "Playlist set: <name>" instead of pretending it queued a song.
+
+2. Remove sent you to Settings
+   The button posted to a /settings/ route that always redirected to
+   the settings page, even though the card you clicked it from is on
+   the home page. It now returns you to the page you were on.
+
+3. The player did nothing and never said why
+   Two causes:
+   a) If the poll finished before the YouTube player had finished
+      loading, playList() silently gave up and nothing retried in that
+      path. It now waits and retries until the player is ready.
+   b) YouTube refuses to embed a lot of YouTube Music and
+      auto-generated playlists - error 101/150 - and the old code
+      swallowed that completely. The player now reads the error code
+      and says what happened on screen:
+        101/150 -> will not embed, use an ordinary playlist
+        2/100   -> private or deleted
+
+   YOUR LINK was music.youtube.com. If it still refuses after
+   deploying, that is YouTube blocking that specific playlist, not the
+   site. Make a normal playlist on youtube.com and use that link.

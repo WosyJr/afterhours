@@ -415,7 +415,11 @@
       }).then(function (r) { return r.json().catch(function () { return {}; }); })
         .then(function (j) {
           add.disabled = false; add.textContent = was;
-          if (j && j.ok) { note('Queued ' + j.title); inp.value = ''; setTimeout(function () { location.reload(); }, 900); }
+          if (j && j.ok) {
+            note(j.playlist ? ('Playlist set: ' + (j.title || 'ready')) : ('Queued ' + j.title));
+            inp.value = '';
+            setTimeout(function () { location.reload(); }, 900);
+          }
           else note((j && j.error) || 'That did not work.', true);
         }).catch(function () { add.disabled = false; add.textContent = was; note('No answer from the server.', true); });
       return;

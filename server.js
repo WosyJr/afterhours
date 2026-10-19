@@ -541,6 +541,7 @@ app.post('/api/sr/add', need('view'), async (req, res) => {
   const SR = require('./lib/sreq');
   const out = await SR.add(req.body && req.body.url, { id: req.ctx.me.id, name: req.ctx.me.name });
   if (out.error) return res.status(400).json({ ok: false, error: out.error });
+  if (out.playlist) return res.json({ ok: true, playlist: true, title: out.name });
   res.json({ ok: true, at: out.at, title: out.track.title });
 });
 
@@ -561,15 +562,27 @@ app.post('/settings/sr/toggle', need('settings'), (req, res) => {
   res.redirect('/settings/site#srcard');
 });
 
+function backTo(req, fallback) {
+  const b = String(req.body && req.body.back || '');
+  if (b.startsWith('/') && !b.startsWith('//')) return b;
+  const ref = String(req.get('referer') || '');
+  try {
+    const u = new URL(ref);
+    if (u.host === req.get('host')) return u.pathname + u.search + '#srcard';
+  } catch (e) {}
+  return fallback;
+}
+
 app.post('/settings/sr/playlist', need('settings'), async (req, res) => {
   const SR = require('./lib/sreq');
-  if (req.body.clear) { SR.setFallback(null); return res.redirect('/settings/site#srcard'); }
+  const home = backTo(req, '/settings/site#srcard');
+  if (req.body.clear) { SR.setFallback(null); return res.redirect(home); }
   const id = SR.parseList(req.body.url || '');
   if (id) {
     const name = await SR.lookupList(id);
     SR.setFallback(id, name || '');
   }
-  res.redirect('/settings/site#srcard');
+  res.redirect(home);
 });
 
 app.post('/settings/sr/clear', need('settings'), (req, res) => {
