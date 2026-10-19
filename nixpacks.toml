@@ -1,2 +1,5 @@
 [phases.setup]
-aptPkgs = ["...", "espeak-ng", "ffmpeg", "mbrola", "mbrola-us1", "mbrola-en1"]
+aptPkgs = ["...", "espeak-ng", "ffmpeg", "mbrola", "mbrola-us1", "mbrola-en1", "curl", "tar"]
+
+[phases.build]
+cmds = ["bash scripts/piper-setup.sh"]
